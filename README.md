@@ -1,4 +1,6 @@
-# riv Inspector
+# RIVINATOR 6000
+
+<img src="logo.png" alt="RIVINATOR 6000 mascot" width="320">
 
 A browser tool for inspecting Rive `.riv` files in **@rive-app/canvas 2.37.6**, the web runtime our games ship. Open the page, drop a `.riv` on it, and play it the way the game does.
 

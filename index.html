@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Inspect .riv files in @rive-app/canvas 2.37.6: view model tree, live nested objects, trigger log with qa_ screenshots, MP4 recording.">
+<meta name="description" content="RIVINATOR 6000: inspect .riv files in @rive-app/canvas 2.37.6. View model tree, live nested objects, trigger log with qa_ screenshots, MP4 recording.">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
-<title>riv Inspector</title>
+<title>RIVINATOR 6000</title>
+<link rel="icon" type="image/png" href="logo.png">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,8 +52,10 @@ svg.i { width: 14px; height: 14px; flex: none; }
 
 /* ---------- top bar ---------- */
 .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-block: 10px; }
-.brand { display: flex; align-items: baseline; gap: 8px; margin-right: 6px; }
-.brand h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: 6px; }
+.brand .logo { height: 34px; width: auto; display: block; }
+.brand h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: .08em; white-space: nowrap; }
+.empty .hero { width: 220px; max-width: 100%; height: auto; display: block; margin: 0 auto 10px; }
 .rt { font: 500 11px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
 .ctl { display: flex; align-items: center; gap: 6px; }
 .ctl label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
@@ -286,7 +289,7 @@ body.resizing canvas { pointer-events: none; }
 </head>
 <body>
 <header class="bar">
-  <div class="brand"><h1>riv Inspector</h1><span class="rt">@rive-app/canvas 2.37.6</span></div>
+  <div class="brand"><img class="logo" src="logo.png" alt="" width="70" height="34"><h1>RIVINATOR 6000</h1><span class="rt">@rive-app/canvas 2.37.6</span></div>
   <label class="btn primary" for="fileIn">Open .riv</label>
   <input id="fileIn" type="file" accept=".riv" hidden>
   <span class="fname" id="fname">No file loaded</span>
@@ -319,6 +322,7 @@ body.resizing canvas { pointer-events: none; }
   <div class="stage" id="stage">
       <div class="empty" id="empty">
         <div class="drop">
+          <img class="hero" src="logo.png" alt="RIVINATOR 6000 mascot" width="220" height="107">
           <h2>Drop a .riv file here</h2>
           <p>It plays in @rive-app/canvas 2.37.6, the runtime the developers ship. Its view model shows on the left, nested view models bound to artboards show as live cards below, every trigger fire is logged, and qa_ triggers are screenshotted the frame they fire.</p>
           <label class="btn primary" for="fileIn">Choose a file</label>
