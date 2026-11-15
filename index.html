@@ -1,0 +1,1329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Inspect .riv files in @rive-app/canvas 2.37.6: view model tree, live nested objects, trigger log with qa_ screenshots, MP4 recording.">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>riv Inspector</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen debugger in resizable columns: data tree | portrait player (mobile artboards) | nested objects over the trigger log. */
+:root {
+  --bg: #e9ecf1; --panel: #fbfcfd; --raise: #f1f3f7; --line: #d6dbe4; --fg: #182032; --muted: #5f6b80;
+  --accent: #2f4fd8; --accent-fg: #ffffff; --accent-soft: #e3e8fd;
+  --fire: #d9580b; --fire-soft: #ffe2cc; --qa: #7a6a2c; --qa-soft: #f4eccb;
+  --ok: #18794e; --err: #c0262d; --err-soft: #fde4e4; --rec: #d92d20;
+  --t-num: #1f6fb2; --t-str: #2f7d3a; --t-bool: #8a4dbe; --t-enum: #b2541f; --t-color: #9c3d78; --t-vm: #4a5568; --t-trig: #d9580b;
+  --check-a: #ffffff; --check-b: #e6e9ef; --scrim: rgba(16, 20, 28, .55);
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1218; --panel: #161a22; --raise: #1d222c; --line: #2a303c; --fg: #e4e8f0; --muted: #8b95a8;
+  --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #d8c27a; --qa-soft: #3a3320;
+  --ok: #4cc38a; --err: #ff6b6b; --err-soft: #3d1c1e; --rec: #ff5b4f;
+  --t-num: #6cb3ef; --t-str: #7dcf86; --t-bool: #c49af0; --t-enum: #f0a36c; --t-color: #e58cc1; --t-vm: #a9b3c6; --t-trig: #ff8c42;
+  --check-a: #1a1e26; --check-b: #222732; --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0f1218; --panel: #161a22; --raise: #1d222c; --line: #2a303c; --fg: #e4e8f0; --muted: #8b95a8;
+  --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #d8c27a; --qa-soft: #3a3320;
+  --ok: #4cc38a; --err: #ff6b6b; --err-soft: #3d1c1e; --rec: #ff5b4f;
+  --t-num: #6cb3ef; --t-str: #7dcf86; --t-bool: #c49af0; --t-enum: #f0a36c; --t-color: #e58cc1; --t-vm: #a9b3c6; --t-trig: #ff8c42;
+  --check-a: #1a1e26; --check-b: #222732; --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font: 13px/1.4 var(--sans);
+  display: flex; flex-direction: column; min-height: 0; box-sizing: border-box;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 14px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mono { font-family: var(--mono); }
+svg.i { width: 14px; height: 14px; flex: none; }
+
+/* ---------- top bar ---------- */
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 8px; margin-right: 6px; }
+.brand h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.rt { font: 500 11px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+.ctl { display: flex; align-items: center; gap: 6px; }
+.ctl label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+select, .btn, input[type=text], input[type=number] { height: 28px; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 0 8px; }
+select { max-width: 170px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn:disabled, select:disabled { opacity: .45; cursor: default; }
+.fname { font: 500 12px var(--mono); color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spacer { flex: 1; }
+
+/* ---------- main grid ---------- */
+.layout { flex: 1; min-height: 0; display: grid;
+  grid-template-columns: var(--w-data, 360px) 12px var(--w-stage, 460px) 12px minmax(0, 1fr); grid-template-areas: "data s1 stage s2 mid"; }
+.layout > aside { grid-area: data; }
+.layout > .stage { grid-area: stage; }
+.mid { grid-area: mid; display: grid; grid-template-rows: minmax(100px, var(--h-cards, 1.2fr)) 12px minmax(100px, 1fr); min-height: 0; min-width: 0; }
+/* drag handles between panels */
+.split { position: relative; touch-action: none; cursor: col-resize; }
+.split.h { cursor: row-resize; }
+.split::before { content: ""; position: absolute; left: 50%; top: 50%; width: 4px; height: 32px; transform: translate(-50%, -50%); border-radius: 2px; background: var(--line); }
+.split.h::before { width: 32px; height: 4px; }
+.split::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); border-radius: 1px; background: transparent; }
+.split.h::after { top: 50%; bottom: auto; left: 0; right: 0; width: auto; height: 2px; transform: translateY(-50%); }
+.split:hover::after, .split.drag::after, .split:focus-visible::after { background: var(--accent); }
+.split:hover::before, .split.drag::before { background: var(--accent); }
+.split:focus-visible { outline: none; }
+body.resizing { user-select: none; cursor: col-resize; }
+body.resizing.row { cursor: row-resize; }
+body.resizing canvas { pointer-events: none; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+/* stage */
+.stage { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); min-height: 0;
+  background-color: var(--check-a); background-image: conic-gradient(var(--check-b) 25%, transparent 0 50%, var(--check-b) 0 75%, transparent 0); background-size: 16px 16px; }
+.stage.bg-dark { background: #101318; }
+.stage.bg-light { background: #ffffff; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.float { position: absolute; z-index: 2; display: flex; align-items: center; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 3px; }
+.stage-bg { right: 10px; bottom: 10px; }
+.stage-rec { right: 10px; top: 10px; }
+.stage-rec select { height: 26px; font-size: 12px; }
+.recbtn { height: 26px; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 0 9px; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; font-size: 12px; }
+.recbtn::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--rec); }
+.recbtn.on { background: var(--rec); color: #fff; border-color: var(--rec); }
+.recbtn.on::before { border-radius: 2px; background: #fff; }
+.recbtn:disabled { opacity: .45; cursor: default; }
+.rectime { font: 500 12px var(--mono); color: var(--rec); padding: 0 4px; font-variant-numeric: tabular-nums; }
+.swatch { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--line); padding: 0; }
+.swatch[aria-pressed=true] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sw-check { background: conic-gradient(#ddd 25%, #fff 0 50%, #ddd 0 75%, #fff 0); background-size: 8px 8px; }
+.sw-dark { background: #101318; } .sw-light { background: #fff; }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; z-index: 1; }
+.empty .drop { border: 1.5px dashed var(--muted); border-radius: 12px; padding: 28px 32px; max-width: 440px; background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.empty h2 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+.empty p { margin: 0 0 14px; color: var(--muted); }
+.stage.dragging .drop { border-color: var(--accent); background: var(--accent-soft); }
+.msg { position: absolute; left: 10px; top: 48px; right: 10px; z-index: 3; padding: 8px 10px; border-radius: 7px; background: var(--err-soft); color: var(--err); font-weight: 500; }
+.dims { position: absolute; left: 10px; bottom: 10px; z-index: 2; font: 500 11px var(--mono); color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; }
+
+/* window bars */
+.wbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--raise); flex-wrap: wrap; min-height: 37px; }
+.wbar h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+.count { font: 500 11px var(--mono); color: var(--muted); }
+.tog { height: 24px; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 0 8px; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.tog[aria-pressed=true] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); }
+.tog:disabled { opacity: .45; cursor: default; }
+.tog.go { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.live { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+.hint { padding: 14px 12px; color: var(--muted); font-family: var(--sans); line-height: 1.55; }
+
+/* activation log */
+.log { flex: 1; min-height: 0; overflow: auto; font: 12px/1 var(--mono); }
+.log .row { display: grid; grid-template-columns: 70px 52px minmax(0, 1fr) 26px auto; gap: 8px; align-items: center; padding: 4px 10px; min-height: 28px; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.log .row.new { animation: logIn 900ms ease-out; }
+@keyframes logIn { from { background: var(--fire-soft); } to { background: transparent; } }
+.log time, .log .fr { color: var(--muted); font-variant-numeric: tabular-nums; }
+.p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p .own { color: var(--muted); }
+.p b { font-weight: 600; color: var(--fg); }
+.qa .p b { color: var(--qa); font-weight: 500; }
+.log .row.qa { cursor: zoom-in; }
+.log .row.qa:hover { background: var(--qa-soft); }
+.cam { width: 24px; height: 22px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); display: grid; place-items: center; padding: 0; color: var(--qa); }
+.cam:hover { border-color: var(--qa); }
+.src { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 4px; text-align: center; }
+.src.file { color: var(--fire); background: var(--fire-soft); }
+.src.you { color: var(--accent); background: var(--accent-soft); }
+.src.event { color: var(--t-bool); background: color-mix(in srgb, var(--t-bool) 15%, transparent); }
+.src.qa { color: var(--qa); background: var(--qa-soft); }
+.log.hide-qa .row.qa, .log.hide-events .row.event, .log.hide-you .row.you { display: none; }
+
+/* nested objects */
+.cards { flex: 1; min-height: 0; overflow: auto; padding: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; align-content: start; }
+.card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 9px; border: 1px solid var(--line); border-radius: 9px; padding: 8px; background: var(--panel); position: relative; }
+.card.fired { animation: cardFire 750ms ease-out; }
+@keyframes cardFire { 0% { border-color: var(--fire); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fire) 45%, transparent); background: var(--fire-soft); } 100% { border-color: var(--line); box-shadow: 0 0 0 0 transparent; background: var(--panel); } }
+.thumb { width: 64px; height: 84px; border-radius: 6px; overflow: hidden; position: relative; cursor: pointer;
+  background-color: var(--check-a); background-image: conic-gradient(var(--check-b) 25%, transparent 0 50%, var(--check-b) 0 75%, transparent 0); background-size: 10px 10px; }
+.thumb canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cbody { min-width: 0; display: grid; gap: 5px; align-content: start; }
+.ctitle { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.ctitle b { font: 600 12px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.ctitle .vmt { font: 11px var(--mono); color: var(--t-vm); white-space: nowrap; }
+.csub { display: flex; gap: 8px; font: 10px var(--mono); color: var(--muted); min-width: 0; }
+.csub .abl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.csub .heat { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.csub .heat.hot { color: var(--fire); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 3px 0 5px; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; font: 500 11px var(--mono); max-width: 100%; }
+.chip::before { content: ""; border-left: 5px solid var(--t-trig); border-top: 4px solid transparent; border-bottom: 4px solid transparent; flex: none; }
+.chip .tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip .n { font-size: 10px; color: var(--muted); background: var(--raise); border-radius: 8px; padding: 0 5px; min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.chip:hover { border-color: var(--t-trig); }
+.chip.qa { color: var(--qa); } .chip.qa::before { border-left-color: var(--qa); }
+.chip.fired { animation: chipFire 700ms ease-out; }
+@keyframes chipFire { from { background: var(--fire-soft); border-color: var(--fire); } to { background: var(--panel); border-color: var(--line); } }
+.cards.hide-qa .chip.qa { display: none; }
+.cvals { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 8px; align-items: center; font: 11px/1.45 var(--mono); margin: 0; padding-top: 6px; border-top: 1px solid var(--line); }
+.cvals dt { color: var(--muted); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+.cvals dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cvals dd.ro { cursor: pointer; }
+.cvals dt:hover, .cvals dd.ro:hover { color: var(--accent); }
+.cvals dd input, .cvals dd select { width: 100%; height: 22px; font: 11px var(--mono); padding: 0 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
+.cvals dd input[type=number] { font-variant-numeric: tabular-nums; }
+.cvals dd.changed { animation: ddChange 800ms ease-out; }
+.cvals .changed { animation: valChange 800ms ease-out; }
+@keyframes ddChange { from { color: var(--fire); } to { color: var(--fg); } }
+.cards.no-vals .cvals { display: none; }
+
+/* data (view model) panel */
+.vmhead { padding: 10px 12px 8px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.vmtitle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vmtitle h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.vmtitle .vmn { font: 500 12px var(--mono); color: var(--t-vm); }
+.filter { width: 100%; }
+.activate { margin: 8px 12px 4px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); text-align: left; flex: none; }
+.activate .nm { font: 600 13px var(--mono); }
+.activate .sub { font: 400 11px var(--mono); opacity: .8; }
+.activate .n { font: 600 12px var(--mono); background: color-mix(in srgb, var(--accent-fg) 22%, transparent); border-radius: 10px; padding: 1px 8px; min-width: 26px; text-align: center; }
+.activate.fired { animation: actFire 700ms ease-out; }
+@keyframes actFire { 0% { box-shadow: 0 0 0 0 var(--fire); } 30% { box-shadow: 0 0 0 5px var(--fire); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.activate.missing { background: var(--raise); color: var(--muted); border-style: dashed; border-color: var(--line); cursor: default; }
+/* the main view model's numbers, pinned under activate like it */
+.pinned { margin: 2px 12px 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); padding: 2px 0; flex: none; max-height: 40%; overflow: auto; font: 12px/1 var(--mono); }
+.pinned .tr { padding-left: 10px; padding-right: 8px; background-image: none; }
+.pinned .tr:hover { background-color: var(--panel); }
+.treebar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; flex: none; }
+.treebar .count { margin-right: auto; }
+.linkbtn { border: 0; background: none; color: var(--accent); font-size: 12px; padding: 0 2px; }
+.vscroll { flex: 1; min-height: 0; overflow: auto; padding-bottom: 10px; }
+.tree { font: 12px/1 var(--mono); }
+.tr { --d: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 27px; padding: 1px 12px 1px calc(12px + var(--d) * 14px);
+  background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 14px); background-repeat: no-repeat; background-position: 18px 0; background-size: calc(var(--d) * 14px) 100%; }
+.tr:hover { background-color: var(--raise); }
+.tr .nm { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tr .nm .k { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: copy; }
+.ty { font: 600 9px var(--sans); text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 4px; border-radius: 3px; flex: none; min-width: 34px; text-align: center; }
+.ty.number, .ty.integer { color: var(--t-num); background: color-mix(in srgb, var(--t-num) 13%, transparent); }
+.ty.string { color: var(--t-str); background: color-mix(in srgb, var(--t-str) 13%, transparent); }
+.ty.boolean { color: var(--t-bool); background: color-mix(in srgb, var(--t-bool) 13%, transparent); }
+.ty.enumType { color: var(--t-enum); background: color-mix(in srgb, var(--t-enum) 13%, transparent); }
+.ty.color { color: var(--t-color); background: color-mix(in srgb, var(--t-color) 13%, transparent); }
+.ty.trigger { color: var(--t-trig); background: color-mix(in srgb, var(--t-trig) 13%, transparent); }
+.ty.other { color: var(--muted); background: var(--raise); }
+.tr.qa .k { color: var(--qa); }
+.tr.qa .ty.trigger { color: var(--qa); background: var(--qa-soft); }
+.vscroll.hide-qa .tr.qa { display: none; }
+.tr.vm { font-weight: 600; }
+.tr.vm .vmt { font-weight: 400; color: var(--t-vm); font-size: 11px; }
+.tr.vm .sum2 { font-weight: 400; color: var(--muted); font-size: 11px; }
+.caret { width: 16px; height: 16px; border: 0; background: none; padding: 0; display: grid; place-items: center; color: var(--muted); flex: none; }
+.caret::before { content: ""; border-left: 5px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform 120ms; }
+.tr.vm[aria-expanded=true] .caret::before { transform: rotate(90deg); }
+.val { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.val input[type=text], .val input[type=number], .val select { height: 23px; font: 12px var(--mono); width: 150px; padding: 0 6px; border-radius: 5px; background: var(--panel); }
+.val input[type=number] { width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
+.val input.hex { width: 92px; }
+.val input[type=color] { width: 26px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; }
+.val .ro { color: var(--muted); font-size: 11px; }
+.tr.changed .val input, .tr.changed .val select, .tr.changed .sw { animation: valChange 800ms ease-out; }
+@keyframes valChange { from { background: var(--fire-soft); border-color: var(--fire); } to { background: var(--panel); } }
+.tr.located { animation: located 1.4s ease-out; }
+@keyframes located { 0%, 40% { background-color: var(--accent-soft); } 100% { background-color: transparent; } }
+.tc { font-size: 10px; color: var(--muted); background: var(--raise); border-radius: 8px; padding: 2px 6px; min-width: 22px; text-align: center; font-variant-numeric: tabular-nums; }
+.firebtn { height: 22px; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 0 8px 0 6px; font: 600 11px var(--sans); display: inline-flex; align-items: center; gap: 4px; }
+.firebtn::before { content: ""; border-left: 6px solid var(--t-trig); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+.firebtn:hover { border-color: var(--t-trig); }
+.tr.trig.fired, .tr.vm.fired { animation: rowFire 700ms ease-out; }
+@keyframes rowFire { from { background-color: var(--fire-soft); } to { background-color: transparent; } }
+.sw { position: relative; width: 32px; height: 18px; border-radius: 9px; border: 1px solid var(--line); background: var(--raise); padding: 0; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform 120ms; }
+.sw[aria-checked=true] { background: var(--accent); border-color: var(--accent); }
+.sw[aria-checked=true]::after { transform: translateX(14px); background: var(--accent-fg); }
+.bv { font-size: 11px; color: var(--muted); width: 34px; }
+.none { padding: 14px 12px; color: var(--muted); font-family: var(--sans); line-height: 1.5; }
+
+/* modals */
+.modal { position: fixed; inset: 0; z-index: 30; background: var(--scrim); display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal[hidden] { display: none; }
+.sheet { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; width: min(980px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.shead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.shead h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.shead .p { font: 12px var(--mono); min-width: 0; }
+.sbody { flex: 1; min-height: 0; display: grid; place-items: center; padding: 12px; overflow: auto;
+  background-color: var(--check-a); background-image: conic-gradient(var(--check-b) 25%, transparent 0 50%, var(--check-b) 0 75%, transparent 0); background-size: 16px 16px; }
+.sbody img, .sbody video { max-width: 100%; max-height: min(64vh, 900px); display: block; border-radius: 4px; }
+.sfoot { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; font: 12px var(--mono); color: var(--muted); }
+.strip { display: flex; gap: 6px; overflow-x: auto; padding: 8px 14px; border-top: 1px solid var(--line); }
+.strip button { flex: none; border: 1px solid var(--line); background: var(--check-b); border-radius: 5px; padding: 2px; display: grid; gap: 2px; width: 92px; font: 10px var(--mono); color: var(--muted); }
+.strip button img { width: 100%; height: 60px; object-fit: contain; }
+.strip button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip button[aria-current=true] { border-color: var(--qa); box-shadow: 0 0 0 1px var(--qa); }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 6px 12px; border-radius: 6px; font: 500 12px var(--mono); z-index: 40; }
+
+@media (max-width: 920px) {
+  html, body { height: auto; }
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "stage" "mid" "data"; gap: 12px; }
+  .layout > .stage { height: min(78vh, 720px); }
+  .mid { grid-template-rows: 460px 0 320px; gap: 6px; }
+  .split { display: none; }
+  aside.panel { max-height: 80vh; }
+  .val input[type=text], .val select { width: 120px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand"><h1>riv Inspector</h1><span class="rt">@rive-app/canvas 2.37.6</span></div>
+  <label class="btn primary" for="fileIn">Open .riv</label>
+  <input id="fileIn" type="file" accept=".riv" hidden>
+  <span class="fname" id="fname">No file loaded</span>
+  <div class="spacer"></div>
+  <div class="ctl"><label for="selArtboard">Artboard</label><select id="selArtboard" disabled></select></div>
+  <div class="ctl"><label for="selSm">State machine</label><select id="selSm" disabled></select></div>
+  <div class="ctl"><label for="selInst">Instance</label><select id="selInst" disabled></select></div>
+  <div class="ctl"><label for="selFit">Fit</label>
+    <select id="selFit"><option>Contain</option><option>Cover</option><option>Fill</option><option>FitWidth</option><option>FitHeight</option><option>ScaleDown</option><option>None</option><option>Layout</option></select></div>
+  <div class="ctl"><label for="selSpeed">Speed</label>
+    <select id="selSpeed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
+  <button class="btn" id="btnPlay" disabled>Pause</button>
+  <button class="btn" id="btnRestart" disabled title="Reload the file from the start (resets every value)">Restart</button>
+</header>
+
+<main class="layout" id="layout">
+  <aside class="panel" aria-label="Data">
+    <div class="vmhead">
+      <div class="vmtitle"><h2>Data</h2><span class="vmn" id="vmName">no view model</span><div class="spacer"></div><button class="tog" id="tgQa2" aria-pressed="true" title="Show qa_* triggers">qa_*</button></div>
+      <input id="filter" class="filter" type="text" placeholder="Filter by name or path (e.g. Cup_3, prize)" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="none" id="vmNone">Load a file to see its view model: triggers and values together, in the order the file lists them, with nested view models as one tree. <span class="mono">activate</span> stays pinned at the top.</div>
+    <button class="activate missing" id="actBtn" disabled hidden><span>▶</span><span><span class="nm">activate</span><br><span class="sub" id="actSub">not in this view model</span></span><span class="n" id="actN">0</span></button>
+    <div class="pinned" id="pinned" hidden></div>
+    <div class="treebar" id="treeBar" hidden><span class="count" id="valCount"></span><button class="linkbtn" id="btnExpand">Expand all</button><button class="linkbtn" id="btnCollapse">Collapse all</button></div>
+    <div class="vscroll" id="vScroll"><div class="tree" id="tree"></div></div>
+  </aside>
+  <div class="split" id="splitData" style="grid-area: s1" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the data panel" title="Drag to resize · double-click to reset"></div>
+
+  <div class="stage" id="stage">
+      <div class="empty" id="empty">
+        <div class="drop">
+          <h2>Drop a .riv file here</h2>
+          <p>It plays in @rive-app/canvas 2.37.6, the runtime the developers ship. Its view model shows on the left, nested view models bound to artboards show as live cards below, every trigger fire is logged, and qa_ triggers are screenshotted the frame they fire.</p>
+          <label class="btn primary" for="fileIn">Choose a file</label>
+        </div>
+      </div>
+      <div class="dims" id="dims" hidden></div>
+      <div class="float stage-rec">
+        <select id="recSrc" aria-label="What to record"><option value="artboard">Artboard</option><option value="tab">This tab</option></select>
+        <span class="rectime" id="recTime" hidden>0:00</span>
+        <button class="recbtn" id="btnRec" disabled>Record</button>
+      </div>
+      <div class="float stage-bg" role="group" aria-label="Stage background">
+        <button class="swatch sw-check" data-bg="" aria-pressed="true" title="Checkerboard"></button>
+        <button class="swatch sw-dark" data-bg="bg-dark" aria-pressed="false" title="Dark"></button>
+        <button class="swatch sw-light" data-bg="bg-light" aria-pressed="false" title="White"></button>
+      </div>
+      <div class="msg" id="msg" hidden></div>
+    </div>
+
+  <div class="split" id="splitStage" style="grid-area: s2" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the player" title="Drag to resize · double-click to reset"></div>
+
+  <section class="mid" id="mid">
+      <section class="panel" aria-label="Nested objects">
+        <div class="wbar">
+          <h2>Nested objects</h2><span class="count" id="nestCount"></span>
+          <div class="spacer"></div>
+          <button class="tog" id="tgVals" aria-pressed="true" title="Show values on the cards">Values</button>
+        </div>
+        <div class="cards" id="cards"><div class="hint" id="cardsEmpty" style="grid-column: 1 / -1">Each nested view model whose view model is bound to an artboard in the file (a component placed in this artboard, like a cup or a prize) gets a card here: that artboard as a live thumbnail, its triggers to fire, its values. A card flashes when a trigger inside it fires.</div></div>
+      </section>
+      <div class="split h" id="splitMid" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Resize nested objects and the trigger log" title="Drag to resize · double-click to reset"></div>
+      <section class="panel" aria-label="Trigger activations">
+        <div class="wbar">
+          <span class="dot" id="liveDot"></span>
+          <h2>Trigger activations</h2><span class="count" id="logCount">0</span>
+          <div class="spacer"></div>
+          <button class="tog" id="tgQa" aria-pressed="true" title="Show qa_* triggers">qa_*</button>
+          <button class="tog" id="tgYou" aria-pressed="true" title="Show triggers fired from this page">Fired here</button>
+          <button class="tog" id="tgEvents" aria-pressed="false" title="Show Rive Events (legacy events, not view model triggers)">Events</button>
+          <button class="tog" id="btnCopyLog">Copy</button>
+          <button class="tog" id="btnClear">Clear</button>
+        </div>
+        <div class="log hide-events" id="log"><div class="hint" id="logEmpty">Every view model trigger is subscribed with <span class="mono">.on()</span>, in every nested view model and list item, the way the game integration listens. <span class="src file">file</span> fired by the .riv · <span class="src you">here</span> fired from this page · <span class="src qa">qa</span> a qa_ trigger: the artboard is screenshotted the frame it fires; click the row to see it.</div></div>
+      </section>
+  </section>
+</main>
+
+<div class="modal" id="viewer" hidden role="dialog" aria-modal="true" aria-labelledby="vTitle">
+  <div class="sheet">
+    <div class="shead"><h2 id="vTitle">qa_ screenshot</h2><span class="p" id="vPath"></span><div class="spacer"></div>
+      <button class="tog" id="vPrev" title="Previous (←)">←</button><span class="count" id="vPos"></span><button class="tog" id="vNext" title="Next (→)">→</button>
+      <button class="tog" id="vSave">Save PNG</button><button class="tog" id="vClose">Close</button></div>
+    <div class="sbody"><img id="vImg" alt=""></div>
+    <div class="sfoot" id="vMeta"></div>
+    <div class="strip" id="vStrip"></div>
+  </div>
+</div>
+
+<div class="modal" id="recModal" hidden role="dialog" aria-modal="true" aria-labelledby="rTitle">
+  <div class="sheet">
+    <div class="shead"><h2 id="rTitle">Recording</h2><div class="spacer"></div><button class="tog go" id="rSave">Save</button><button class="tog" id="rClose">Close</button></div>
+    <div class="sbody"><video id="rVideo" controls playsinline></video></div>
+    <div class="sfoot" id="rMeta"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* Virtual clock, installed before the runtime loads: the runtime advances by the rAF timestamps it is given,
+   so scaling them changes playback speed (0.25x slow motion up to 4x) without touching the file. */
+(function () {
+  const realRAF = window.requestAnimationFrame.bind(window);
+  const C = window.__clock = { speed: 1, rBase: null, vBase: 0, last: -Infinity };
+  C.virt = (t) => { if (C.rBase === null) { C.rBase = t; C.vBase = t; } const v = Math.max(C.last, C.vBase + (t - C.rBase) * C.speed); C.last = v; return v; };
+  C.now = () => C.virt(performance.now());
+  C.setSpeed = (s) => { const v = C.now(); C.rBase = performance.now(); C.vBase = v; C.speed = s; };
+  window.__realRAF = realRAF;
+  window.requestAnimationFrame = (cb) => realRAF((t) => cb(C.virt(t)));
+  try {
+    const d = Object.getOwnPropertyDescriptor(AnimationTimeline.prototype, 'currentTime');
+    Object.defineProperty(document.timeline, 'currentTime', { configurable: true, get() { const v = d.get.call(document.timeline); return v == null ? v : C.virt(v); } });
+  } catch (e) {}
+})();
+/* Audio tap: the runtime plays its clips through Web Audio into the speakers. Every node it connects to a speaker
+   output is also fed to a per-context stream, and all of them are mixed into one track the recorder always has. */
+(function () {
+  const A = window.__audio = { taps: new Map(), mixCtx: null, mixDest: null, hooked: new Set() };
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC || !window.AudioNode) return;
+  const connect = AudioNode.prototype.connect;
+  A.hook = (tap) => { if (!A.mixCtx || A.hooked.has(tap)) return; try { A.mixCtx.createMediaStreamSource(tap.stream).connect(A.mixDest); A.hooked.add(tap); } catch (e) {} };
+  A.ensure = () => {
+    if (!A.mixCtx) {
+      A.mixCtx = new AC(); A.mixDest = A.mixCtx.createMediaStreamDestination();
+      // a silent constant keeps the track running from the first frame, so sound that starts later stays in sync
+      try { const k = A.mixCtx.createConstantSource(); k.offset.value = 0; k.connect(A.mixDest); k.start(); } catch (e) {}
+    }
+    A.taps.forEach(A.hook);
+    return A.mixCtx.resume().catch(() => {});
+  };
+  A.track = () => A.mixDest && A.mixDest.stream.getAudioTracks()[0];
+  document.addEventListener('pointerdown', () => A.ensure(), { capture: true, once: true });
+  AudioNode.prototype.connect = function (dest) {
+    const res = connect.apply(this, arguments);
+    try {
+      if (window.AudioDestinationNode && dest instanceof AudioDestinationNode && dest.context !== A.mixCtx && !A.muted.has(dest.context)) {
+        let tap = A.taps.get(dest.context);
+        if (!tap) { tap = dest.context.createMediaStreamDestination(); A.taps.set(dest.context, tap); A.hook(tap); }
+        connect.call(this, tap);
+      }
+    } catch (e) {}
+    return res;
+  };
+  A.muted = new WeakSet();
+})();
+</script>
+<script src="https://unpkg.com/@rive-app/canvas@2.37.6/rive.js"></script>
+<script>
+(() => {
+'use strict';
+const RT = window.rive;
+const CLK = window.__clock;
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const CAM = '<svg class="i" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 5.5h2.5l1.2-1.8h4.6l1.2 1.8H14v7.2H2z"/><circle cx="8" cy="8.9" r="2.3"/></svg>';
+
+// The page ships rive.wasm next to itself (the artifact sandbox blocks the runtime's own CDN fetch).
+try { RT.RuntimeLoader.setWasmUrl(new URL('rive.wasm', location.href).href); } catch (e) {}
+// Saving files: the artifact viewer's downloads capability when present, a plain download otherwise.
+let DL = null;
+try { if (window.claude && window.claude.use) window.claude.use('downloads').then((d) => { DL = d; }, () => {}); } catch (e) {}
+
+const S = {
+  r: null, canvas: null, buf: null, fileName: '', gen: 0, ready: [],
+  artboard: null, sm: null, fit: 'Contain', inst: null, playing: true, bg: '',
+  frame: 0, t0: 0, f0: 0,
+  root: null, tree: null, triggers: [], values: [], vmNodes: [], subs: [], pinned: null, vmRows: new Map(),
+  hostPending: new Map(), collapsed: new Set(), logN: 0, logEntries: [], shots: [],
+  thumbFile: null, thumbNative: null, abByVm: null, cards: [], cardOf: new Map(),
+};
+(function tick() { S.frame++; window.__realRAF(tick); })();
+
+const vnow = () => CLK.now();
+// Render at 2x or more: screenshots and recordings are only as sharp as the stage canvas.
+const DPR = () => Math.max(2, window.devicePixelRatio || 1);
+function showMsg(t) { const m = $('msg'); m.textContent = t || ''; m.hidden = !t; }
+function toast(t) { const e = $('toast'); e.textContent = t; e.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => (e.hidden = true), 1800); }
+const flash = (e, cls = 'fired') => { if (!e) return; e.classList.remove(cls); void e.offsetWidth; e.classList.add(cls); };
+
+async function saveFile(blob, filename) {
+  if (DL) {
+    try { await DL.save({ filename, data: blob }); toast('Saved ' + filename); } catch (e) { if (e && e.code !== 'declined') toast('Could not save: ' + (e.message || e.code)); }
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+const baseName = () => (S.fileName || 'rive').replace(/\.riv$/i, '');
+const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+
+/* ======================= loading ======================= */
+const stage = $('stage');
+async function loadFile(file) {
+  if (!file) return;
+  if (!/\.riv$/i.test(file.name)) { showMsg('That is not a .riv file: ' + file.name); return; }
+  loadBuffer(await file.arrayBuffer(), file.name);
+}
+function loadBuffer(buf, name) {
+  teardownCards(); disposeThumbFile();
+  S.buf = buf; S.fileName = name || 'file.riv';
+  S.artboard = null; S.sm = null; S.inst = null; S.collapsed.clear();
+  $('fname').textContent = S.fileName; $('fname').title = S.fileName;
+  clearLog();
+  return boot();
+}
+window.inspector = { loadBuffer, state: S };
+
+function teardown() {
+  unsubscribeAll(); teardownCards();
+  if (S.r) { try { S.r.stopRendering(); } catch (e) {} try { S.r.cleanup(); } catch (e) {} }
+  S.r = null;
+  if (S.canvas) S.canvas.remove();
+  S.canvas = null;
+}
+
+function boot() {
+  if (!S.buf) return Promise.resolve(false);
+  const p = new Promise((res) => S.ready.push(res));
+  teardown(); showMsg('');
+  const gen = ++S.gen;
+  $('empty').hidden = true;
+  const cv = document.createElement('canvas');
+  const dpr = DPR();
+  cv.width = Math.max(1, Math.round(stage.clientWidth * dpr));
+  cv.height = Math.max(1, Math.round(stage.clientHeight * dpr));
+  stage.prepend(cv); S.canvas = cv;
+  const opts = {
+    buffer: S.buf.slice(0), canvas: cv, autoplay: true, autoBind: true,
+    layout: new RT.Layout({ fit: RT.Fit[S.fit], alignment: RT.Alignment.Center }),
+    onLoad: () => { if (gen === S.gen) onLoaded(); },
+    onLoadError: (e) => { if (gen === S.gen) { showMsg('Could not load the file in 2.37.6: ' + ((e && (e.data || e.message)) || e)); flushReady(false); } },
+  };
+  if (S.artboard) opts.artboard = S.artboard;
+  if (S.sm) opts.stateMachines = S.sm;
+  try { S.r = new RT.Rive(opts); } catch (e) { showMsg('The runtime threw while loading: ' + (e && e.message || e)); flushReady(false); return p; }
+  S.r.on(RT.EventType.RiveEvent, (ev) => { if (gen === S.gen) logEvent(ev && ev.data); });
+  return p;
+}
+function flushReady(v) { const w = S.ready; S.ready = []; w.forEach((f) => f(v)); }
+
+function onLoaded() {
+  const r = S.r;
+  // No state machine chosen yet: take the artboard's first one and boot again so auto-bind wires the view model into it.
+  if (!S.sm) {
+    const sms = r.stateMachineNames || [];
+    if (sms.length) { S.artboard = S.artboard || firstArtboard(); S.sm = sms[0]; boot(); return; }
+  }
+  if (!S.artboard) S.artboard = firstArtboard();
+  try { r.resizeDrawingSurfaceToCanvas(DPR()); } catch (e) {}
+  S.playing = true; $('btnPlay').textContent = 'Pause';
+  S.t0 = vnow(); S.f0 = S.frame;
+  $('liveDot').classList.add('live');
+  fillSelectors(); bindTree();
+  $('dims').hidden = false;
+  $('dims').textContent = `${S.artboard} · ${Math.round(r.artboardWidth)}×${Math.round(r.artboardHeight)} · ${S.sm || 'no state machine'}`;
+  ['btnPlay', 'btnRestart', 'btnRec'].forEach((id) => ($(id).disabled = false));
+  flushReady(true);
+}
+function firstArtboard() { try { const c = S.r.contents; return c && c.artboards && c.artboards[0] ? c.artboards[0].name : null; } catch (e) { return null; } }
+
+function fillSelectors() {
+  const r = S.r; let c = null;
+  try { c = r.contents; } catch (e) {}
+  const abs = (c && c.artboards) || [];
+  const sa = $('selArtboard'); sa.innerHTML = '';
+  abs.forEach((a) => { const o = el('option', null, a.name); o.value = a.name; sa.appendChild(o); });
+  sa.value = S.artboard || ''; sa.disabled = abs.length < 2;
+  const ab = abs.find((a) => a.name === S.artboard) || abs[0];
+  const ss = $('selSm'); ss.innerHTML = '';
+  ((ab && ab.stateMachines) || []).forEach((m) => { const o = el('option', null, m.name); o.value = m.name; ss.appendChild(o); });
+  ss.value = S.sm || ''; ss.disabled = ss.options.length < 2;
+  const si = $('selInst'); si.innerHTML = '';
+  let names = [];
+  try { const dvm = r.defaultViewModel(); if (dvm) names = dvm.instanceNames || []; } catch (e) {}
+  const def = el('option', null, 'default'); def.value = ''; si.appendChild(def);
+  names.forEach((n) => { if (!n) return; const o = el('option', null, n); o.value = n; si.appendChild(o); });
+  const blank = el('option', null, 'new blank instance'); blank.value = '\u0000blank'; si.appendChild(blank);
+  si.value = S.inst || ''; si.disabled = !r.viewModelInstance;
+}
+
+/* ======================= view model model ======================= */
+function propsOf(inst) { try { return inst.properties || []; } catch (e) { return []; } }
+function vmNameOf(inst) { try { return inst.viewModelName || ''; } catch (e) { return ''; } }
+function accessor(inst, name, type) {
+  switch (type) {
+    case 'number': case 'integer': return inst.number(name);
+    case 'string': return inst.string(name);
+    case 'boolean': return inst.boolean(name);
+    case 'color': return inst.color(name);
+    case 'enumType': return inst.enum(name);
+    case 'trigger': return inst.trigger(name);
+    default: return null;
+  }
+}
+// Properties keep the order the .riv stores them in; triggers, values and nested view models stay interleaved.
+function walk(inst, path, depth, node) {
+  for (const p of propsOf(inst)) {
+    const t = String(p.type);
+    const full = path ? path + '/' + p.name : p.name;
+    if (t === 'viewModel') {
+      let child = null; try { child = inst.viewModel(p.name); } catch (e) {}
+      const n = { kind: 'vm', name: p.name, path: full, depth, vmName: child ? vmNameOf(child) : '', children: [], parent: node };
+      node.children.push(n); S.vmNodes.push(n);
+      if (child && depth < 12) walk(child, full, depth + 1, n);
+    } else if (t === 'list') {
+      let l = null; try { l = inst.list(p.name); } catch (e) {}
+      const len = l ? l.length : 0;
+      const n = { kind: 'vm', isList: true, name: p.name, path: full, depth, vmName: `list · ${len}`, children: [], parent: node };
+      node.children.push(n); S.vmNodes.push(n);
+      for (let i = 0; i < len; i++) {
+        let it = null; try { it = l.instanceAt(i); } catch (e) {}
+        const ip = full + '/' + i;
+        const c = { kind: 'vm', name: `[${i}]`, path: ip, depth: depth + 1, vmName: it ? vmNameOf(it) : '', children: [], parent: n };
+        n.children.push(c); S.vmNodes.push(c);
+        if (it && depth < 12) walk(it, ip, depth + 2, c);
+      }
+    } else if (t === 'trigger') {
+      let acc = null; try { acc = inst.trigger(p.name); } catch (e) {}
+      const tr = { kind: 'trigger', name: p.name, path: full, owner: path, depth, acc, count: 0, qa: p.name.startsWith('qa_'), row: null, lastShot: null, parent: node };
+      S.triggers.push(tr); node.children.push(tr);
+    } else {
+      let acc = null; try { acc = accessor(inst, p.name, t); } catch (e) {}
+      const v = { kind: 'value', type: t, name: p.name, path: full, depth, acc, last: undefined, userAt: 0, row: null, ctl: null, parent: node };
+      S.values.push(v); node.children.push(v);
+    }
+  }
+}
+function unsubscribeAll() { for (const s of S.subs) { try { s.acc.off(s.cb); } catch (e) {} } S.subs = []; }
+
+function bindTree() {
+  unsubscribeAll(); teardownCards();
+  S.triggers = []; S.values = []; S.vmNodes = [];
+  const root = S.r && S.r.viewModelInstance;
+  S.root = root || null;
+  $('vmNone').hidden = !!root; $('actBtn').hidden = !root; $('treeBar').hidden = !root;
+  $('tree').innerHTML = ''; $('pinned').innerHTML = ''; $('pinned').hidden = true;
+  if (!root) {
+    $('vmName').textContent = 'no view model';
+    $('vmNone').textContent = 'This artboard has no view model bound (no default view model, or auto-bind found nothing).';
+    return;
+  }
+  $('vmName').textContent = vmNameOf(root) || 'view model';
+  const tree = { kind: 'vm', name: '', path: '', depth: -1, children: [], parent: null };
+  walk(root, '', 0, tree);
+  S.tree = tree;
+  const gen = S.gen;
+  for (const tr of S.triggers) {
+    if (!tr.acc) continue;
+    const cb = () => { if (gen === S.gen) onTrigger(tr); };
+    try { tr.acc.on(cb); S.subs.push({ acc: tr.acc, cb }); } catch (e) {}
+  }
+  // pinned: the root `activate`, else the shallowest `activate` anywhere
+  const acts = S.triggers.filter((t) => t.name === 'activate').sort((a, b) => a.depth - b.depth);
+  S.pinned = acts[0] || null;
+  const ab = $('actBtn'), pin = S.pinned;
+  ab.classList.toggle('missing', !pin); ab.disabled = !pin;
+  $('actSub').textContent = pin ? (pin.owner ? pin.path : (vmNameOf(root) || 'root')) : 'not in this view model';
+  $('actN').textContent = pin ? '0' : '–';
+  renderTree(); applyFilter();
+  buildCards(gen);
+}
+$('actBtn').onclick = () => { if (S.pinned) fireTrigger(S.pinned); };
+
+/* ======================= triggers ======================= */
+function fireTrigger(t) {
+  if (!t.acc) return;
+  S.hostPending.set(t.path, S.frame);
+  try { t.acc.trigger(); } catch (e) { toast('Could not fire ' + t.path); }
+}
+
+function onTrigger(t) {
+  t.count++;
+  let src = 'file';
+  const hp = S.hostPending.get(t.path);
+  if (hp !== undefined && S.frame - hp < 30) { src = 'you'; S.hostPending.delete(t.path); }
+  // Trigger callbacks run at the end of the runtime's draw, after the frame is on the canvas: grab it now.
+  const shot = t.qa ? captureShot() : null;
+  if (shot) t.lastShot = shot;
+  if (t === S.pinned) { $('actN').textContent = String(t.count); flash($('actBtn')); }
+  if (t.row && t.row.isConnected) { t.row.querySelector('.tc').textContent = String(t.count); flash(t.row); const c = t.row.querySelector('.cam'); if (c) c.hidden = !t.lastShot; }
+  const ownerRow = S.vmRows.get(t.owner); if (ownerRow && ownerRow.isConnected) flash(ownerRow);
+  const entry = { path: t.path, owner: t.owner, name: t.name, src, qa: t.qa, t: (vnow() - S.t0) / 1000, f: S.frame - S.f0, shot };
+  logRow(entry);
+  cardTrigger(t, entry);
+}
+
+/* ======================= screenshots ======================= */
+function artboardRect() {
+  const r = S.r, cv = S.canvas;
+  const aw = r.artboardWidth, ah = r.artboardHeight, cw = cv.width, ch = cv.height;
+  let sx = 1, sy = 1;
+  switch (S.fit) {
+    case 'Contain': sx = sy = Math.min(cw / aw, ch / ah); break;
+    case 'Cover': sx = sy = Math.max(cw / aw, ch / ah); break;
+    case 'Fill': sx = cw / aw; sy = ch / ah; break;
+    case 'FitWidth': sx = sy = cw / aw; break;
+    case 'FitHeight': sx = sy = ch / ah; break;
+    case 'ScaleDown': sx = sy = Math.min(1, Math.min(cw / aw, ch / ah)); break;
+    case 'Layout': return { x: 0, y: 0, w: cw, h: ch };
+    default: sx = sy = 1;
+  }
+  const w = aw * sx, h = ah * sy;
+  return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+}
+function captureShot() {
+  if (!S.canvas || !S.r) return null;
+  const ab = artboardRect();
+  const x0 = Math.max(0, ab.x), y0 = Math.max(0, ab.y), x1 = Math.min(S.canvas.width, ab.x + ab.w), y1 = Math.min(S.canvas.height, ab.y + ab.h);
+  const w = Math.max(1, Math.round(x1 - x0)), h = Math.max(1, Math.round(y1 - y0));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(S.canvas, x0, y0, x1 - x0, y1 - y0, 0, 0, w, h);
+  const shot = { url: null, blob: null, w, h };
+  shot.ready = new Promise((res) => c.toBlob((b) => { shot.blob = b; shot.url = b ? URL.createObjectURL(b) : null; res(shot); }, 'image/png'));
+  S.shots.push(shot);
+  if (S.shots.length > 600) { const old = S.shots.shift(); if (old.url) URL.revokeObjectURL(old.url); old.url = null; old.gone = true; }
+  return shot;
+}
+
+/* ======================= activation log ======================= */
+const logBox = $('log');
+function clearLog() {
+  S.logN = 0; S.logEntries = [];
+  logBox.querySelectorAll('.row').forEach((r) => r.remove());
+  $('logEmpty').hidden = false; $('logCount').textContent = '0';
+  for (const t of S.triggers) { t.count = 0; if (t.row && t.row.isConnected) t.row.querySelector('.tc').textContent = '0'; }
+  if (S.pinned) $('actN').textContent = '0';
+  for (const c of S.cards) { c.chips.forEach((ch) => (ch.querySelector('.n').textContent = '0')); c.heat.textContent = ''; c.heat.classList.remove('hot'); }
+}
+function srcLabel(e) { return e.src === 'you' ? 'here' : e.src === 'event' ? 'event' : e.qa ? 'qa' : 'file'; }
+function logRow(e) {
+  const kind = e.src === 'event' ? 'event' : e.src === 'you' ? 'you' : e.qa ? 'qa' : 'file';
+  const row = el('div', 'row new ' + kind);
+  const p = el('span', 'p'); p.title = e.path;
+  if (e.owner) p.appendChild(el('span', 'own', e.owner + '/'));
+  p.appendChild(el('b', null, e.name));
+  const camCell = el('span');
+  if (e.shot) { const b = el('button', 'cam'); b.innerHTML = CAM; b.title = 'Show the screenshot'; b.setAttribute('aria-label', 'Show the screenshot of ' + e.path); camCell.appendChild(b); row.onclick = () => openViewer(logShots(), e); }
+  const lbl = srcLabel(e);
+  row.append(el('time', null, e.t.toFixed(3) + 's'), el('span', 'fr', 'f' + e.f), p, camCell, el('span', 'src ' + (lbl === 'here' ? 'you' : lbl), lbl));
+  $('logEmpty').hidden = true;
+  logBox.insertBefore(row, logBox.querySelector('.row'));
+  S.logN++; $('logCount').textContent = String(S.logN);
+  S.logEntries.push(e);
+  if (S.logEntries.length > 3000) S.logEntries.shift();
+  const rows = logBox.querySelectorAll('.row');
+  if (rows.length > 800) rows[rows.length - 1].remove();
+}
+function logEvent(d) { if (!d) return; logRow({ path: d.name, owner: '', name: d.name, src: 'event', qa: false, t: (vnow() - S.t0) / 1000, f: S.frame - S.f0 }); }
+const logShots = () => S.logEntries.filter((e) => e.shot && !e.shot.gone);
+
+function setPressed(btn, on) { btn.setAttribute('aria-pressed', String(on)); }
+function bindToggle(btn, cls, target) { btn.onclick = () => { const on = btn.getAttribute('aria-pressed') !== 'true'; setPressed(btn, on); target.classList.toggle(cls, !on); }; }
+bindToggle($('tgYou'), 'hide-you', logBox);
+bindToggle($('tgEvents'), 'hide-events', logBox);
+bindToggle($('tgVals'), 'no-vals', $('cards'));
+function setQa(on) { ['tgQa', 'tgQa2'].forEach((id) => setPressed($(id), on)); logBox.classList.toggle('hide-qa', !on); $('vScroll').classList.toggle('hide-qa', !on); $('cards').classList.toggle('hide-qa', !on); }
+$('tgQa').onclick = () => setQa($('tgQa').getAttribute('aria-pressed') !== 'true');
+$('tgQa2').onclick = () => setQa($('tgQa2').getAttribute('aria-pressed') !== 'true');
+$('btnClear').onclick = clearLog;
+$('btnCopyLog').onclick = () => copyText('time\tframe\tpath\tsource\n' + S.logEntries.map((e) => `${e.t.toFixed(3)}s\tf${e.f}\t${e.path}\t${srcLabel(e)}`).join('\n'), S.logEntries.length + ' rows');
+async function copyText(txt, what) { try { await navigator.clipboard.writeText(txt); toast('Copied ' + what); } catch (e) { toast('The browser blocked the clipboard'); } }
+
+/* ======================= data tree ======================= */
+function typeLabel(t) { return { number: 'num', integer: 'int', string: 'str', boolean: 'bool', enumType: 'enum', color: 'color', trigger: 'trig' }[t] || t; }
+function hex8(v) { return ('00000000' + (v >>> 0).toString(16).toUpperCase()).slice(-8); }
+const KNOWN = ['number', 'integer', 'string', 'boolean', 'enumType', 'color', 'trigger'];
+
+// Numbers of the main view model stay pinned on top, under activate.
+const isPinnedNum = (n) => n.kind === 'value' && n.parent === S.tree && (n.type === 'number' || n.type === 'integer');
+function renderTree() {
+  const box = $('tree'); box.innerHTML = ''; S.vmRows.clear();
+  const pin = $('pinned'); pin.innerHTML = '';
+  const nums = S.tree.children.filter(isPinnedNum);
+  nums.forEach((v) => pin.appendChild(valueRow(v)));
+  pin.hidden = !nums.length;
+  const add = (n) => {
+    if (n.kind === 'trigger') { if (n !== S.pinned) box.appendChild(triggerRow(n)); return; }
+    if (n.kind === 'value') { if (!isPinnedNum(n)) box.appendChild(valueRow(n)); return; }
+    const row = el('div', 'tr vm'); row.style.setProperty('--d', n.depth); row.dataset.path = n.path;
+    const exp = !S.collapsed.has(n.path); row.setAttribute('aria-expanded', String(exp));
+    const nm = el('div', 'nm');
+    const car = el('button', 'caret'); car.setAttribute('aria-label', (exp ? 'Collapse ' : 'Expand ') + n.path);
+    const k = el('span', 'k', n.name); k.title = n.path + ' (click to copy the path)'; k.onclick = () => copyText(n.path, n.path);
+    nm.append(car, k);
+    if (n.vmName && n.vmName !== n.name) nm.appendChild(el('span', 'vmt', n.vmName));
+    const c = countKids(n);
+    row.append(nm, el('span', 'sum2', c.v + ' val' + (c.t ? ' · ' + c.t + ' trig' : '')));
+    car.onclick = () => { S.collapsed.has(n.path) ? S.collapsed.delete(n.path) : S.collapsed.add(n.path); renderTree(); applyFilter(); };
+    row.ondblclick = (e) => { if (e.target !== k) car.onclick(); };
+    box.appendChild(row); S.vmRows.set(n.path, row);
+    if (exp) n.children.forEach(add);
+  };
+  S.tree.children.forEach(add);
+  $('valCount').textContent = `${S.values.length} values · ${S.triggers.length} triggers`;
+  if (!S.tree.children.length) box.appendChild(el('div', 'none', 'This view model has no properties.'));
+}
+function countKids(n) {
+  let v = 0, t = 0;
+  for (const c of n.children) { if (c.kind === 'value') v++; else if (c.kind === 'trigger') t++; else { const s = countKids(c); v += s.v; t += s.t; } }
+  return { v, t };
+}
+
+function triggerRow(t) {
+  const row = el('div', 'tr trig' + (t.qa ? ' qa' : '')); row.style.setProperty('--d', t.depth); row.dataset.path = t.path;
+  const nm = el('div', 'nm');
+  const k = el('span', 'k', t.name); k.title = t.path + ' (click to copy the path)'; k.onclick = () => copyText(t.path, t.path);
+  nm.append(el('span', 'ty trigger', 'trig'), k);
+  const val = el('div', 'val');
+  if (t.qa) {
+    const cam = el('button', 'cam'); cam.innerHTML = CAM; cam.title = 'Show the last screenshot of ' + t.path; cam.setAttribute('aria-label', cam.title); cam.hidden = !t.lastShot;
+    cam.onclick = () => { const all = logShots(); const e = [...all].reverse().find((x) => x.path === t.path); if (e) openViewer(all, e); };
+    val.appendChild(cam);
+  }
+  const fb = el('button', 'firebtn', 'Fire'); fb.title = 'Fire ' + t.path; fb.onclick = () => fireTrigger(t);
+  val.append(el('span', 'tc', String(t.count)), fb);
+  row.append(nm, val);
+  t.row = row;
+  return row;
+}
+
+function valueRow(v) {
+  const row = el('div', 'tr'); row.style.setProperty('--d', v.depth); row.dataset.path = v.path;
+  const nm = el('div', 'nm');
+  const k = el('span', 'k', v.name); k.title = v.path + ' (click to copy the path)'; k.onclick = () => copyText(v.path, v.path);
+  nm.append(el('span', 'ty ' + (KNOWN.includes(v.type) ? v.type : 'other'), typeLabel(v.type)), k);
+  const val = el('div', 'val');
+  const a = v.acc; const id = 'v_' + v.path.replace(/[^\w]/g, '_');
+  let ctl = null;
+  const mark = () => { v.userAt = performance.now(); };
+  if (!a) { val.appendChild(el('span', 'ro', v.type === 'image' || v.type === 'artboard' ? 'not editable here' : 'read-only')); }
+  else if (v.type === 'number' || v.type === 'integer') {
+    ctl = el('input'); ctl.type = 'number'; ctl.step = 'any'; ctl.id = id;
+    ctl.addEventListener('input', () => { const n = Number(ctl.value); if (ctl.value !== '' && isFinite(n)) { mark(); a.value = n; } });
+  } else if (v.type === 'string') {
+    ctl = el('input'); ctl.type = 'text'; ctl.id = id; ctl.spellcheck = false;
+    ctl.addEventListener('input', () => { mark(); a.value = ctl.value; });
+  } else if (v.type === 'boolean') {
+    ctl = el('button', 'sw'); ctl.setAttribute('role', 'switch'); ctl.id = id;
+    const lbl = el('span', 'bv');
+    ctl.onclick = () => { mark(); a.value = !a.value; };
+    val.appendChild(lbl); v.bv = lbl;
+  } else if (v.type === 'enumType') {
+    ctl = el('select'); ctl.id = id;
+    let vals = []; try { vals = a.values || []; } catch (e) {}
+    vals.forEach((x) => { const o = el('option', null, x); o.value = x; ctl.appendChild(o); });
+    ctl.addEventListener('change', () => { mark(); a.value = ctl.value; });
+  } else if (v.type === 'color') {
+    const pick = el('input'); pick.type = 'color'; pick.id = id + '_pick'; pick.setAttribute('aria-label', v.path + ' color');
+    ctl = el('input', 'hex'); ctl.type = 'text'; ctl.id = id; ctl.spellcheck = false; ctl.title = 'AARRGGBB';
+    pick.addEventListener('input', () => { mark(); const alpha = hex8(a.value).slice(0, 2); a.value = parseInt(alpha + pick.value.slice(1), 16) | 0; });
+    ctl.addEventListener('change', () => { let h = ctl.value.replace(/^#|^0x/i, ''); if (h.length === 6) h = 'FF' + h; if (/^[0-9a-f]{8}$/i.test(h)) { mark(); a.value = parseInt(h, 16) | 0; } });
+    val.appendChild(pick); v.pick = pick;
+  }
+  if (ctl) { ctl.setAttribute('aria-label', v.path); val.appendChild(ctl); }
+  row.append(nm, val);
+  v.row = row; v.ctl = ctl; v.last = undefined;
+  syncValue(v, true);
+  return row;
+}
+function readValue(v) { try { return v.acc ? v.acc.value : undefined; } catch (e) { return undefined; } }
+function fmtVal(v, x) { return x === undefined ? '–' : v.type === 'color' ? hex8(x) : String(x); }
+function syncValue(v, initial) {
+  if (!v.ctl || !v.row) return;
+  const cur = readValue(v);
+  if (cur === v.last) return;
+  const fromFile = !initial && v.last !== undefined && performance.now() - v.userAt > 400;
+  v.last = cur;
+  const focused = document.activeElement === v.ctl;
+  if (v.type === 'boolean') { v.ctl.setAttribute('aria-checked', String(!!cur)); v.bv.textContent = cur ? 'true' : 'false'; }
+  else if (v.type === 'color') { const h = hex8(cur); if (!focused) v.ctl.value = h; v.pick.value = '#' + h.slice(2); }
+  else if (!focused) v.ctl.value = cur == null ? '' : String(cur);
+  if (fromFile) flash(v.row, 'changed');
+}
+setInterval(() => {
+  if (!S.r || !S.root) return;
+  for (const v of S.values) if (v.row && v.row.isConnected) syncValue(v);
+  syncCards();
+}, 100);
+
+/* lists can grow or shrink at runtime: rebuild the tree when a list length changes */
+setInterval(() => {
+  if (!S.r || !S.root) return;
+  const sig = listSig(S.root, 0);
+  if (S.listSig !== undefined && sig !== S.listSig) bindTree();
+  S.listSig = sig;
+}, 1000);
+function listSig(inst, d) {
+  let s = '';
+  for (const p of propsOf(inst)) {
+    const t = String(p.type);
+    try {
+      if (t === 'list') { const l = inst.list(p.name); s += p.name + ':' + (l ? l.length : 0) + ';'; }
+      else if (t === 'viewModel' && d < 6) { const c = inst.viewModel(p.name); if (c) s += listSig(c, d + 1); }
+    } catch (e) {}
+  }
+  return s;
+}
+
+/* filter: a row stays when it matches, when something below it matches, or when a view model above it matches */
+function applyFilter() {
+  const q = $('filter').value.trim().toLowerCase();
+  const rows = [...document.querySelectorAll('#tree .tr')];
+  if (!q) { rows.forEach((r) => (r.hidden = false)); return; }
+  const hit = rows.filter((r) => r.dataset.path.toLowerCase().includes(q)).map((r) => r.dataset.path);
+  rows.forEach((r) => { const p = r.dataset.path; r.hidden = !hit.some((h) => h === p || h.startsWith(p + '/') || p.startsWith(h + '/')); });
+}
+$('filter').addEventListener('input', applyFilter);
+$('btnExpand').onclick = () => { S.collapsed.clear(); renderTree(); applyFilter(); };
+$('btnCollapse').onclick = () => { S.vmNodes.forEach((n) => S.collapsed.add(n.path)); renderTree(); applyFilter(); };
+
+// Show a property in the data tree: open its parents, clear a filter that hides it, scroll to it, highlight it.
+function revealInTree(path) {
+  const segs = path.split('/');
+  for (let i = 1; i <= segs.length; i++) S.collapsed.delete(segs.slice(0, i).join('/'));
+  renderTree();
+  const sel = `#tree .tr[data-path="${CSS.escape(path)}"], #pinned .tr[data-path="${CSS.escape(path)}"]`;
+  let row = document.querySelector(sel);
+  if (row && $('filter').value) { $('filter').value = ''; applyFilter(); row = document.querySelector(sel); }
+  else applyFilter();
+  if (!row) return;
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  flash(row, 'located');
+  const c = row.querySelector('input, select, .sw'); if (c) setTimeout(() => c.focus({ preventScroll: true }), 300);
+}
+
+/* ======================= nested objects ======================= */
+/* A second, separate copy of the file drives the thumbnails, so nothing they do reaches the real instance.
+   Each card's thumbnail is its artboard with its own state machine; the card mirrors the real nested instance's
+   values into it and repeats its triggers, so the thumbnail follows what happens in the main artboard. */
+function disposeThumbFile() {
+  if (S.thumbFile) { try { S.thumbFile.cleanup(); } catch (e) {} }
+  S.thumbFile = null; S.thumbNative = null; S.abByVm = null;
+}
+async function ensureThumbFile() {
+  if (S.abByVm) return true;
+  if (!S.thumbFilePromise) {
+    S.thumbFilePromise = (async () => {
+      const f = new RT.RiveFile({ buffer: S.buf.slice(0) });
+      await f.init();
+      const nf = f.getInstance(); // holds a reference so the file outlives the thumbnails
+      if (!nf) throw new Error('no file');
+      const map = new Map();
+      for (let i = 0; i < nf.artboardCount(); i++) {
+        const ab = nf.artboardByIndex(i);
+        let vmName = null; try { const vm = nf.defaultArtboardViewModel(ab); vmName = vm ? vm.name : null; } catch (e) {}
+        const sms = []; try { for (let k = 0; k < ab.stateMachineCount(); k++) sms.push(ab.stateMachineByIndex(k).name); } catch (e) {}
+        if (vmName) { if (!map.has(vmName)) map.set(vmName, []); map.get(vmName).push({ artboard: ab.name, sm: sms[0] || null, w: ab.bounds ? ab.bounds.maxX - ab.bounds.minX : 0 }); }
+        try { ab.delete && ab.delete(); } catch (e) {}
+      }
+      S.thumbFile = f; S.thumbNative = nf; S.abByVm = map;
+      return true;
+    })().catch(() => false).finally(() => { S.thumbFilePromise = null; });
+  }
+  return S.thumbFilePromise;
+}
+
+function teardownCards() {
+  // each thumbnail holds its own reference on the shared file, so cleanup() leaves the file to the others
+  for (const c of S.cards) { if (c.tr) { try { c.tr.stopRendering(); } catch (e) {} try { c.tr.cleanup(); } catch (e) {} } }
+  S.cards = []; S.cardOf.clear();
+  const box = $('cards'); [...box.querySelectorAll('.card')].forEach((c) => c.remove());
+  $('nestCount').textContent = '';
+}
+
+async function buildCards(gen) {
+  const box = $('cards');
+  const ok = await ensureThumbFile();
+  if (gen !== S.gen || !S.root) return;
+  teardownCards();
+  if (!ok) { $('cardsEmpty').hidden = false; return; }
+  const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  const nodes = S.vmNodes.filter((n) => !n.isList && n.vmName && S.abByVm.has(n.vmName) && S.abByVm.get(n.vmName).some((a) => a.artboard !== S.artboard))
+    .sort((a, b) => natural(a.path, b.path));
+  const isCard = new Set(nodes);
+  for (const n of nodes) {
+    const opts = S.abByVm.get(n.vmName).filter((a) => a.artboard !== S.artboard);
+    const pick = opts.find((a) => a.artboard.toLowerCase().includes(n.name.toLowerCase().replace(/[_\d]+$/, ''))) || opts[0];
+    // this card's own triggers and values: its subtree, minus nested view models that have a card of their own
+    const trigs = [], vals = [];
+    const collect = (node, rel) => {
+      for (const c of node.children) {
+        const r = rel ? rel + '/' + c.name : c.name;
+        if (c.kind === 'trigger') trigs.push({ t: c, rel: r });
+        else if (c.kind === 'value') vals.push({ v: c, rel: r, mirrored: undefined, shown: undefined, dd: null });
+        else if (!isCard.has(c) && !c.isList) collect(c, r);
+      }
+    };
+    collect(n, '');
+    const card = { node: n, ab: pick, trigs, vals, tr: null, tInst: null, chips: [], el: null, heat: null };
+    renderCard(card);
+    box.appendChild(card.el);
+    S.cards.push(card);
+    trigs.forEach((x) => { if (!S.cardOf.has(x.t)) S.cardOf.set(x.t, []); S.cardOf.get(x.t).push(card); });
+    startThumb(card, gen);
+  }
+  $('cardsEmpty').hidden = nodes.length > 0;
+  $('nestCount').textContent = nodes.length ? String(nodes.length) : '';
+}
+
+function renderCard(card) {
+  const n = card.node;
+  const c = el('div', 'card'); c.dataset.path = n.path;
+  const th = el('div', 'thumb'); th.title = `${card.ab.artboard} (live, mirrors ${n.path}). Click to show it in the data tree`;
+  th.onclick = () => revealInTree(n.path);
+  const cv = el('canvas'); th.appendChild(cv); card.canvas = cv;
+  const body = el('div', 'cbody');
+  const title = el('div', 'ctitle');
+  const b = el('b', null, n.path); b.title = 'Show ' + n.path + ' in the data tree'; b.onclick = () => revealInTree(n.path);
+  card.heat = el('span', 'heat');
+  title.append(b, el('span', 'vmt', n.vmName));
+  const sub = el('div', 'csub');
+  const abl = el('span', 'abl', card.ab.artboard + (card.ab.sm ? ' · ' + card.ab.sm : '')); abl.title = 'Thumbnail: artboard ' + abl.textContent;
+  sub.append(abl, card.heat);
+  const chips = el('div', 'chips');
+  card.trigs.forEach(({ t, rel }) => {
+    const ch = el('button', 'chip' + (t.qa ? ' qa' : ''));
+    ch.title = 'Fire ' + t.path;
+    ch.append(el('span', 'tn', rel), el('span', 'n', String(t.count)));
+    ch.onclick = () => fireTrigger(t);
+    ch._t = t; card.chips.push(ch); chips.appendChild(ch);
+  });
+  const dl = el('dl', 'cvals');
+  card.vals.forEach((x) => {
+    const v = x.v, a = v.acc;
+    const dt = el('dt', null, x.rel); dt.title = v.path + ' (click to show it in the data tree)';
+    dt.onclick = () => revealInTree(v.path);
+    const dd = el('dd'); x.dd = dd;
+    const mark = () => { v.userAt = performance.now(); };
+    // strings, numbers and enums are edited right on the card; other types open in the data tree
+    if (a && (v.type === 'number' || v.type === 'integer')) {
+      const i = el('input'); i.type = 'number'; i.step = 'any'; i.setAttribute('aria-label', v.path);
+      i.addEventListener('input', () => { const n = Number(i.value); if (i.value !== '' && isFinite(n)) { mark(); a.value = n; } });
+      x.ctl = i; dd.appendChild(i);
+    } else if (a && v.type === 'string') {
+      const i = el('input'); i.type = 'text'; i.spellcheck = false; i.setAttribute('aria-label', v.path);
+      i.addEventListener('input', () => { mark(); a.value = i.value; });
+      x.ctl = i; dd.appendChild(i);
+    } else if (a && v.type === 'enumType') {
+      const i = el('select'); i.setAttribute('aria-label', v.path);
+      let opts = []; try { opts = a.values || []; } catch (e) {}
+      opts.forEach((o) => { const op = el('option', null, o); op.value = o; i.appendChild(op); });
+      i.addEventListener('change', () => { mark(); a.value = i.value; });
+      x.ctl = i; dd.appendChild(i);
+    } else {
+      dd.classList.add('ro'); dd.title = v.path + ' (click to edit it in the data tree)';
+      dd.onclick = () => revealInTree(v.path);
+    }
+    dl.append(dt, dd);
+  });
+  body.append(title, sub);
+  if (card.trigs.length) body.appendChild(chips);
+  c.append(th, body);
+  if (card.vals.length) c.appendChild(dl);
+  card.el = c;
+}
+
+function startThumb(card, gen) {
+  const cv = card.canvas;
+  cv.width = 64 * DPR(); cv.height = 84 * DPR();
+  try {
+    const tr = new RT.Rive({
+      riveFile: S.thumbFile, canvas: cv, artboard: card.ab.artboard, stateMachines: card.ab.sm || undefined,
+      autoplay: true, autoBind: true, shouldDisableRiveListeners: true,
+      layout: new RT.Layout({ fit: RT.Fit.Contain, alignment: RT.Alignment.Center }),
+      onLoad: () => {
+        if (gen !== S.gen) return;
+        try { tr.volume = 0; } catch (e) {}
+        card.tInst = tr.viewModelInstance || null;
+        card.vals.forEach((x) => (x.mirrored = undefined));
+        syncCard(card);
+      },
+    });
+    card.tr = tr;
+  } catch (e) {}
+}
+
+// walk a relative path in the thumbnail's own instance ("Prize/amount" → viewModel("Prize").string("amount"))
+function thumbAcc(card, rel, type) {
+  card.accs = card.accs || new Map();
+  if (card.accs.has(rel)) return card.accs.get(rel);
+  let acc = null;
+  try {
+    const segs = rel.split('/'); const leaf = segs.pop(); let inst = card.tInst;
+    for (const s of segs) { inst = inst && inst.viewModel(s); }
+    if (inst) acc = accessor(inst, leaf, type);
+  } catch (e) { acc = null; }
+  card.accs.set(rel, acc);
+  return acc;
+}
+
+function syncCard(card) {
+  for (const x of card.vals) {
+    const cur = readValue(x.v);
+    if (cur !== x.shown) {
+      const changed = x.shown !== undefined;
+      x.shown = cur;
+      if (x.ctl) {
+        if (document.activeElement !== x.ctl) x.ctl.value = cur == null ? '' : String(cur);
+        if (changed && performance.now() - x.v.userAt > 400) flash(x.ctl, 'changed');
+      } else if (x.dd) { x.dd.textContent = fmtVal(x.v, cur); if (changed) flash(x.dd, 'changed'); }
+    }
+    if (card.tInst && cur !== undefined && cur !== x.mirrored) {
+      const a = thumbAcc(card, x.rel, x.v.type);
+      if (a) { try { a.value = cur; } catch (e) {} }
+      x.mirrored = cur;
+    }
+  }
+}
+function syncCards() { for (const c of S.cards) syncCard(c); }
+
+function cardTrigger(t, entry) {
+  const cards = S.cardOf.get(t); if (!cards) return;
+  for (const card of cards) {
+    flash(card.el);
+    const ch = card.chips.find((x) => x._t === t);
+    if (ch) { ch.querySelector('.n').textContent = String(t.count); flash(ch); }
+    card.heat.textContent = (t.path.startsWith(card.node.path + '/') ? t.path.slice(card.node.path.length + 1) : t.name) + ' · ' + entry.t.toFixed(2) + 's';
+    card.heat.classList.add('hot'); clearTimeout(card.heatT); card.heatT = setTimeout(() => card.heat.classList.remove('hot'), 1500);
+    // repeat it in the thumbnail, after this frame's values are mirrored
+    if (card.tInst) {
+      syncCard(card);
+      const rel = card.trigs.find((x) => x.t === t);
+      const a = rel && thumbAcc(card, rel.rel, 'trigger');
+      if (a) { try { a.trigger(); } catch (e) {} }
+    }
+  }
+}
+
+/* ======================= screenshot viewer ======================= */
+const V = { list: [], i: 0 };
+function openViewer(list, entry) {
+  V.list = list.filter((e) => e.shot && !e.shot.gone); V.i = Math.max(0, V.list.indexOf(entry));
+  if (!V.list.length) return;
+  $('viewer').hidden = false; renderStrip(); showShot();
+  $('vClose').focus();
+}
+async function showShot() {
+  const e = V.list[V.i]; if (!e) return;
+  await e.shot.ready;
+  $('vImg').src = e.shot.url || '';
+  $('vImg').alt = 'Artboard when ' + e.path + ' fired';
+  $('vPath').textContent = e.path;
+  $('vPos').textContent = `${V.i + 1} / ${V.list.length}`;
+  $('vMeta').textContent = [e.t.toFixed(3) + 's', 'frame ' + e.f, `${e.shot.w}×${e.shot.h}px`].join(' · ');
+  $('vStrip').querySelectorAll('button').forEach((b, i) => { b.setAttribute('aria-current', String(i === V.i)); if (i === V.i) b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });
+}
+function renderStrip() {
+  const s = $('vStrip'); s.innerHTML = '';
+  V.list.forEach((e, i) => {
+    const b = el('button'); const img = el('img'); img.alt = '';
+    e.shot.ready.then(() => { img.src = e.shot.url || ''; });
+    b.append(img, el('span', null, e.name));
+    b.title = e.path + ' · ' + e.t.toFixed(3) + 's';
+    b.onclick = () => { V.i = i; showShot(); };
+    s.appendChild(b);
+  });
+}
+function step(d) { if (!V.list.length) return; V.i = (V.i + d + V.list.length) % V.list.length; showShot(); }
+$('vPrev').onclick = () => step(-1); $('vNext').onclick = () => step(1);
+$('vClose').onclick = () => ($('viewer').hidden = true);
+$('vSave').onclick = async () => { const e = V.list[V.i]; if (!e) return; await e.shot.ready; if (e.shot.blob) saveFile(e.shot.blob, `${baseName()}_${e.name.replace(/[^\w-]+/g, '_')}_f${e.f}.png`); };
+document.addEventListener('keydown', (ev) => {
+  if (!$('viewer').hidden) { if (ev.key === 'Escape') $('viewer').hidden = true; else if (ev.key === 'ArrowLeft') step(-1); else if (ev.key === 'ArrowRight') step(1); }
+  else if (!$('recModal').hidden && ev.key === 'Escape') closeRecModal();
+});
+$('viewer').addEventListener('click', (e) => { if (e.target === $('viewer')) $('viewer').hidden = true; });
+$('recModal').addEventListener('click', (e) => { if (e.target === $('recModal')) closeRecModal(); });
+
+/* ======================= recording ======================= */
+const REC = { rec: null, chunks: [], t0: 0, timer: 0, stream: null, mime: '', blob: null, url: null, hasAudio: false, kind: '', draw: null, ext: 'mp4' };
+function pickMime() {
+  const c = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+  return c.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+}
+function fileHasAudio() { try { return !!(S.r && S.r.file && S.r.file.hasAudio); } catch (e) { return false; } }
+async function startRecording() {
+  if (!window.MediaRecorder) { toast('This browser cannot record video'); return; }
+  const kind = $('recSrc').value;
+  let stream;
+  REC.draw = null;
+  if (kind === 'tab') {
+    try { stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 60 }, audio: true, preferCurrentTab: true, selfBrowserSurface: 'include', systemAudio: 'include' }); }
+    catch (e) { toast('Screen capture was not allowed here'); return; }
+    stream.getVideoTracks()[0].addEventListener('ended', () => { if (REC.rec) stopRecording(); });
+  } else {
+    if (!S.canvas || !S.r) return;
+    const ab = artboardRect();
+    const scale = Math.min(1, 1920 / Math.max(ab.w, ab.h));
+    const w = Math.max(2, Math.round(ab.w * scale / 2) * 2), h = Math.max(2, Math.round(ab.h * scale / 2) * 2);
+    const rc = document.createElement('canvas'); rc.width = w; rc.height = h;
+    const g = rc.getContext('2d');
+    REC.draw = () => {
+      if (!REC.rec || REC.rec.state === 'inactive') return;
+      if (S.canvas && S.r) {
+        const a = artboardRect();
+        g.fillStyle = S.bg === 'bg-light' ? '#ffffff' : '#101318';
+        g.fillRect(0, 0, w, h);
+        g.drawImage(S.canvas, a.x, a.y, a.w, a.h, 0, 0, w, h);
+      }
+      window.__realRAF(REC.draw);
+    };
+    stream = rc.captureStream(60);
+    let at = null;
+    if (window.__audio && window.__audio.ensure) { await Promise.race([window.__audio.ensure(), new Promise((r) => setTimeout(r, 500))]); at = window.__audio.track(); }
+    if (at) stream.addTrack(at);
+  }
+  REC.hasAudio = kind === 'tab' ? stream.getAudioTracks().length > 0 : fileHasAudio();
+  REC.mime = pickMime();
+  let rec;
+  try { rec = new MediaRecorder(stream, REC.mime ? { mimeType: REC.mime, videoBitsPerSecond: 10e6 } : undefined); }
+  catch (e) { toast('Could not start the recorder'); return; }
+  REC.rec = rec; REC.kind = kind; REC.stream = stream; REC.chunks = [];
+  rec.ondataavailable = (e) => { if (e.data && e.data.size) REC.chunks.push(e.data); };
+  rec.onstop = finishRecording;
+  rec.start(250);
+  if (REC.draw) REC.draw();
+  REC.t0 = performance.now();
+  $('btnRec').classList.add('on'); $('btnRec').textContent = 'Stop'; $('recTime').hidden = false; $('recTime').textContent = '0:00'; $('recSrc').disabled = true;
+  REC.timer = setInterval(() => { const s = Math.floor((performance.now() - REC.t0) / 1000); $('recTime').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }, 250);
+}
+function stopRecording() { if (REC.rec && REC.rec.state !== 'inactive') REC.rec.stop(); }
+function finishRecording() {
+  clearInterval(REC.timer);
+  const dur = (performance.now() - REC.t0) / 1000;
+  if (REC.kind === 'tab') REC.stream.getTracks().forEach((t) => t.stop()); else REC.stream.getVideoTracks().forEach((t) => t.stop());
+  const type = (REC.mime || 'video/webm').split(';')[0];
+  REC.blob = new Blob(REC.chunks, { type });
+  REC.rec = null; REC.draw = null;
+  $('btnRec').classList.remove('on'); $('btnRec').textContent = 'Record'; $('recTime').hidden = true; $('recSrc').disabled = false;
+  if (REC.url) URL.revokeObjectURL(REC.url);
+  REC.url = URL.createObjectURL(REC.blob);
+  REC.ext = type === 'video/mp4' ? 'mp4' : 'webm';
+  $('rVideo').src = REC.url;
+  $('rTitle').textContent = 'Recording · ' + REC.ext.toUpperCase();
+  $('rSave').textContent = 'Save ' + REC.ext.toUpperCase();
+  const notes = [`${dur.toFixed(1)}s`, `${(REC.blob.size / 1048576).toFixed(1)} MB`, REC.hasAudio ? 'with sound' : (REC.kind === 'tab' ? 'no sound shared' : 'no sound: this file plays no audio')];
+  if (REC.ext !== 'mp4') notes.push('this browser cannot write MP4, so it is WebM (Chrome 126+ and Safari write MP4)');
+  if (CLK.speed !== 1) notes.push(`picture at ${CLK.speed}× speed, sound at 1×`);
+  $('rMeta').textContent = notes.join(' · ');
+  $('recModal').hidden = false; $('rClose').focus();
+}
+function closeRecModal() { $('recModal').hidden = true; try { $('rVideo').pause(); } catch (e) {} }
+$('btnRec').onclick = () => { if (REC.rec) stopRecording(); else startRecording(); };
+$('rClose').onclick = closeRecModal;
+$('rSave').onclick = () => { if (REC.blob) saveFile(REC.blob, `${baseName()}_${stamp()}.${REC.ext}`); };
+
+/* ======================= controls ======================= */
+$('fileIn').addEventListener('change', (e) => { loadFile(e.target.files[0]); e.target.value = ''; });
+$('selArtboard').onchange = (e) => { S.artboard = e.target.value; S.sm = null; S.inst = null; clearLog(); boot(); };
+$('selSm').onchange = (e) => { S.sm = e.target.value; clearLog(); boot(); };
+$('selInst').onchange = (e) => {
+  const name = e.target.value; S.inst = name; const r = S.r; if (!r) return;
+  try {
+    const dvm = r.defaultViewModel();
+    const inst = name === '\u0000blank' ? dvm.instance() : name ? dvm.instanceByName(name) : dvm.defaultInstance();
+    if (inst) { r.bindViewModelInstance(inst); bindTree(); toast('Bound ' + (name === '\u0000blank' ? 'a blank instance' : name || 'the default instance')); }
+  } catch (err) { toast('Could not bind that instance'); }
+};
+$('selFit').onchange = (e) => {
+  S.fit = e.target.value;
+  if (S.r) { try { S.r.layout = new RT.Layout({ fit: RT.Fit[S.fit], alignment: RT.Alignment.Center }); S.r.resizeDrawingSurfaceToCanvas(DPR()); } catch (err) {} }
+};
+$('selSpeed').onchange = (e) => { CLK.setSpeed(Number(e.target.value)); };
+$('btnPlay').onclick = () => {
+  if (!S.r) return;
+  const all = [S.r, ...S.cards.map((c) => c.tr).filter(Boolean)];
+  if (S.playing) { all.forEach((r) => { try { r.pause(); } catch (e) {} }); S.playing = false; $('btnPlay').textContent = 'Play'; $('liveDot').classList.remove('live'); }
+  else { all.forEach((r) => { try { r.play(); } catch (e) {} }); S.playing = true; $('btnPlay').textContent = 'Pause'; $('liveDot').classList.add('live'); }
+};
+$('btnRestart').onclick = () => { clearLog(); boot(); };
+document.querySelectorAll('.swatch').forEach((b) => b.onclick = () => {
+  document.querySelectorAll('.swatch').forEach((x) => setPressed(x, x === b));
+  stage.classList.remove('bg-dark', 'bg-light'); S.bg = b.dataset.bg; if (S.bg) stage.classList.add(S.bg);
+});
+new ResizeObserver(() => { if (S.r) { try { S.r.resizeDrawingSurfaceToCanvas(DPR()); } catch (e) {} } }).observe(stage);
+
+let dragDepth = 0;
+window.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; stage.classList.add('dragging'); $('empty').hidden = false; });
+window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; stage.classList.remove('dragging'); if (S.r) $('empty').hidden = true; } });
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => {
+  e.preventDefault(); dragDepth = 0; stage.classList.remove('dragging');
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) loadFile(f); else if (S.r) $('empty').hidden = true;
+});
+
+/* ======================= resizable panels ======================= */
+(function () {
+  const lay = $('layout'), mid = $('mid');
+  const KEY = 'rivinspector.layout';
+  let sizes = {};
+  try { sizes = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
+  const VARS = { data: '--w-data', stage: '--w-stage', cards: '--h-cards' };
+  const apply = () => { for (const k in VARS) { if (sizes[k]) (k === 'cards' ? mid : lay).style.setProperty(VARS[k], sizes[k] + 'px'); else (k === 'cards' ? mid : lay).style.removeProperty(VARS[k]); } };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(sizes)); } catch (e) {} };
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const MIN_SIDE = 240, MIN_MID = 260, MIN_ROW = 100;
+  const limits = {
+    data: (v) => { const L = lay.getBoundingClientRect(), st = stage.getBoundingClientRect().width; return clamp(v, MIN_SIDE, L.width - st - 24 - MIN_MID); },
+    stage: (v) => { const L = lay.getBoundingClientRect(), d = lay.querySelector('aside').getBoundingClientRect().width; return clamp(v, MIN_SIDE, L.width - d - 24 - MIN_MID); },
+    cards: (v) => clamp(v, MIN_ROW, mid.getBoundingClientRect().height - 12 - MIN_ROW),
+  };
+  const current = { data: () => lay.querySelector('aside').getBoundingClientRect().width, stage: () => stage.getBoundingClientRect().width, cards: () => mid.firstElementChild.getBoundingClientRect().height };
+  const set = (k, v) => { sizes[k] = Math.round(limits[k](v)); apply(); };
+  function wire(el, key, fromPointer) {
+    const row = key === 'cards';
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault(); el.setPointerCapture(e.pointerId);
+      el.classList.add('drag'); document.body.classList.add('resizing'); if (row) document.body.classList.add('row');
+      const move = (ev) => set(key, fromPointer(ev));
+      const up = () => { el.removeEventListener('pointermove', move); el.classList.remove('drag'); document.body.classList.remove('resizing', 'row'); save(); };
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up, { once: true });
+      el.addEventListener('pointercancel', up, { once: true });
+    });
+    el.addEventListener('keydown', (e) => {
+      const step = e.shiftKey ? 64 : 16;
+      const d = row ? ({ ArrowUp: -step, ArrowDown: step }[e.key]) : ({ ArrowLeft: -step, ArrowRight: step }[e.key]);
+      if (!d) return;
+      e.preventDefault(); set(key, current[key]() + d); save();
+    });
+    el.addEventListener('dblclick', () => { delete sizes[key]; apply(); save(); });
+  }
+  wire($('splitData'), 'data', (e) => e.clientX - lay.getBoundingClientRect().left);
+  wire($('splitStage'), 'stage', (e) => e.clientX - stage.getBoundingClientRect().left);
+  wire($('splitMid'), 'cards', (e) => e.clientY - mid.getBoundingClientRect().top);
+  apply();
+  // keep saved sizes valid when the window shrinks
+  window.addEventListener('resize', () => { for (const k of ['data', 'stage', 'cards']) if (sizes[k]) sizes[k] = Math.round(limits[k](sizes[k])); apply(); });
+})();
+
+if (!RT) showMsg('The Rive runtime did not load from unpkg.com. Check the network and reload.');
+})();
+</script>
+
+</body>
+</html>
