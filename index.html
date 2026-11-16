@@ -16,7 +16,7 @@
 :root {
   --bg: #e9ecf1; --panel: #fbfcfd; --raise: #f1f3f7; --line: #d6dbe4; --fg: #182032; --muted: #5f6b80;
   --accent: #2f4fd8; --accent-fg: #ffffff; --accent-soft: #e3e8fd;
-  --fire: #d9580b; --fire-soft: #ffe2cc; --qa: #7a6a2c; --qa-soft: #f4eccb;
+  --fire: #d9580b; --fire-soft: #ffe2cc; --qa: #c25a00; --qa-soft: #ffe4cc;
   --ok: #18794e; --err: #c0262d; --err-soft: #fde4e4; --rec: #d92d20;
   /* type colors: view model, number, string, boolean, enum, trigger (fired from code), event (fired by Rive) */
   --t-vm: #9a5a14; --t-num: #3d33f0; --t-str: #d63a2b; --t-bool: #7c8800; --t-enum: #a822cf; --t-color: #9c3d78; --t-trig: #2c9412; --t-trig-fg: #ffffff; --t-event: #0a8ba0;
@@ -26,14 +26,14 @@
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0f1218; --panel: #161a22; --raise: #1d222c; --line: #2a303c; --fg: #e4e8f0; --muted: #8b95a8;
-  --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #d8c27a; --qa-soft: #3a3320;
+  --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #ff9a3c; --qa-soft: #3d2410;
   --ok: #4cc38a; --err: #ff6b6b; --err-soft: #3d1c1e; --rec: #ff5b4f;
   --t-vm: #c07428; --t-num: #6a61ff; --t-str: #f0533f; --t-bool: #e6ff52; --t-enum: #cd3cf3; --t-color: #e58cc1; --t-trig: #6ff546; --t-trig-fg: #0b1a05; --t-event: #70e8f8;
   --check-a: #1a1e26; --check-b: #222732; --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --bg: #0f1218; --panel: #161a22; --raise: #1d222c; --line: #2a303c; --fg: #e4e8f0; --muted: #8b95a8;
-  --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #d8c27a; --qa-soft: #3a3320;
+  --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #ff9a3c; --qa-soft: #3d2410;
   --ok: #4cc38a; --err: #ff6b6b; --err-soft: #3d1c1e; --rec: #ff5b4f;
   --t-vm: #c07428; --t-num: #6a61ff; --t-str: #f0533f; --t-bool: #e6ff52; --t-enum: #cd3cf3; --t-color: #e58cc1; --t-trig: #6ff546; --t-trig-fg: #0b1a05; --t-event: #70e8f8;
   --check-a: #1a1e26; --check-b: #222732; --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
@@ -141,6 +141,7 @@ body.resizing canvas { pointer-events: none; }
 .p b { font-weight: 600; color: var(--fg); }
 .log .row.rt .p b { color: var(--t-trig); }
 .log .row.ev .p b { color: var(--t-event); font-weight: 500; }
+.log .row.qa .p b { color: var(--qa); }
 .log .row.qa { cursor: zoom-in; }
 .log .row.qa:hover { background: var(--qa-soft); }
 .cam { width: 24px; height: 22px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); display: grid; place-items: center; padding: 0; color: var(--qa); }
@@ -177,6 +178,7 @@ body.resizing canvas { pointer-events: none; }
 .chip.rt { border-color: color-mix(in srgb, var(--t-trig) 60%, transparent); background: color-mix(in srgb, var(--t-trig) 12%, var(--panel)); font-weight: 600; }
 .chip.rt::before { border-left-color: var(--t-trig); }
 .chip.rt:hover { border-color: var(--t-trig); }
+.chip.qa { color: var(--qa); } .chip.qa::before { border-left-color: var(--qa); } .chip.qa:hover { border-color: var(--qa); }
 .chip.fired { animation: chipFire 700ms ease-out; }
 @keyframes chipFire { from { background: var(--fire-soft); border-color: var(--fire); } to { background: var(--panel); border-color: var(--line); } }
 .cards.hide-qa .chip.qa { display: none; }
@@ -255,6 +257,8 @@ body.resizing canvas { pointer-events: none; }
 .ty.color { color: var(--t-color); background: color-mix(in srgb, var(--t-color) 13%, transparent); }
 .ty.trigger { color: var(--t-trig); background: color-mix(in srgb, var(--t-trig) 13%, transparent); }
 .ty.event { color: var(--t-event); background: color-mix(in srgb, var(--t-event) 13%, transparent); }
+.ty.qa { color: var(--qa); background: var(--qa-soft); }
+.tr.qa .k { color: var(--qa); }
 .ty.viewModel { color: var(--t-vm); background: color-mix(in srgb, var(--t-vm) 15%, transparent); }
 /* values set from code (no data bind writes them): a green runtime tag */
 .rtag { font: 600 9px var(--sans); text-transform: uppercase; letter-spacing: .05em; color: var(--t-trig); border: 1px solid color-mix(in srgb, var(--t-trig) 60%, transparent); border-radius: 3px; padding: 1px 4px; flex: none; }
@@ -780,15 +784,15 @@ function reclassify(n) {
   };
   S.reclassT = setTimeout(run, 300);
 }
-// green triggers (fired from code): large buttons on top, activate first
+// green triggers of the main view model (fired from code): large buttons on top, activate first.
+// Runtime triggers of nested view models stay in the tree and on their cards.
 function renderTriggerButtons() {
   const box = $('tbtns'); box.innerHTML = '';
   S.triggers.forEach((t) => (t.btn = null));
-  let list = S.binds ? S.triggers.filter((t) => t.origin === 'runtime') : S.triggers.filter((t) => t.name === 'activate');
-  const lead = list.filter((t) => t.name === 'activate').sort((a, b) => a.depth - b.depth)[0];
-  const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-  list = list.filter((t) => t !== lead).sort((a, b) => (a.depth - b.depth) || natural(a.path, b.path));
-  if (lead) list.unshift(lead);
+  const main = S.mainNode || S.tree;
+  let list = S.triggers.filter((t) => t.parent === main && (S.binds ? t.origin === 'runtime' : t.name === 'activate'));
+  const lead = list.find((t) => t.name === 'activate');
+  if (lead) list = [lead, ...list.filter((t) => t !== lead)];
   for (const t of list) {
     const b = el('button', 'tbtn' + (t === lead ? ' lead' : ''));
     b.title = 'Fire ' + t.path + ' (a trigger the game fires from code)';
@@ -957,7 +961,7 @@ function triggerRow(t) {
   const row = el('div', 'tr trig' + (t.qa ? ' qa' : '') + (rt ? ' rt' : '') + (t.parent === S.mainNode ? ' big' : '')); row.style.setProperty('--d', t.depth); row.dataset.path = t.path;
   const nm = el('div', 'nm');
   const k = el('span', 'k', t.name); k.title = t.path + ' (click to copy the path)'; k.onclick = () => copyText(t.path, t.path);
-  nm.append(rt ? el('span', 'ty trigger', 'trig') : el('span', 'ty event', 'event'), k);
+  nm.append(t.qa ? el('span', 'ty qa', 'qa') : rt ? el('span', 'ty trigger', 'trig') : el('span', 'ty event', 'event'), k);
   if (!rt) row.title = 'Event: fired by the file (a data bind in the .riv writes it)';
   const val = el('div', 'val');
   if (t.qa) {
