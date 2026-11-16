@@ -8,14 +8,20 @@ Files never leave your browser: nothing is uploaded anywhere.
 
 ## What it does
 
-- **Data:** the artboard's view model as one tree, with triggers, values and nested view models in the order the file stores them. `activate` and the main view model's number values stay pinned at the top. Every value is editable and every trigger can be fired.
+- **Data:** the artboard's view model as one tree.
+  - Triggers fired from code (no data bind in the file writes them) sit on top as large green buttons, `activate` first.
+  - The main view model (its name contains "main") comes next, in larger rows, then every nested view model.
+  - Inside each view model, values set from code come first, marked with a green **runtime** tag; values Rive sets follow, then events.
+  - Every value is editable and every trigger can be fired.
+- **Colors by type:** view model brown, number blue, string red, boolean yellow, enum purple, trigger green (fired from code), event cyan (fired by Rive, through actions or property groups bound object to source).
+- **How origins are read:** the inspector reads the data binds stored in the `.riv` itself. A property that a bind writes (target to source, or two-way) is set by Rive; everything else is set from code. If the file later fires or changes something it classified as set from code, it moves it over.
 - **Player:** the artboard running in 2.37.6, sized for portrait (mobile) artboards. Pick the artboard, state machine, view model instance and fit, and play at 0.25× to 4× speed.
 - **Nested objects:** a card for every nested view model that is bound to an artboard (a component such as a cup or a prize). Each card shows:
   - that artboard as a live thumbnail
   - its triggers, one click to fire
   - its strings, numbers and enums, editable in place
 
-  A card flashes when a trigger inside it fires.
+  A card flashes when a trigger inside it fires, and the card with the latest trigger moves to the top.
 - **Trigger activations:** every view model trigger the file fires, with time and frame, subscribed with `.on()` the way the game integration listens.
 - **qa_ screenshots:** each `qa_` trigger is screenshotted the frame it fires. Click its row in the log to see it, step through all of them, and save any as PNG.
 - **Recording:** record the artboard (or the whole tab) to MP4, with the sound the file plays.

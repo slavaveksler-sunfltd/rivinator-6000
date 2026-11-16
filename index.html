@@ -18,7 +18,8 @@
   --accent: #2f4fd8; --accent-fg: #ffffff; --accent-soft: #e3e8fd;
   --fire: #d9580b; --fire-soft: #ffe2cc; --qa: #7a6a2c; --qa-soft: #f4eccb;
   --ok: #18794e; --err: #c0262d; --err-soft: #fde4e4; --rec: #d92d20;
-  --t-num: #1f6fb2; --t-str: #2f7d3a; --t-bool: #8a4dbe; --t-enum: #b2541f; --t-color: #9c3d78; --t-vm: #4a5568; --t-trig: #d9580b;
+  /* type colors: view model, number, string, boolean, enum, trigger (fired from code), event (fired by Rive) */
+  --t-vm: #9a5a14; --t-num: #3d33f0; --t-str: #d63a2b; --t-bool: #7c8800; --t-enum: #a822cf; --t-color: #9c3d78; --t-trig: #2c9412; --t-trig-fg: #ffffff; --t-event: #0a8ba0;
   --check-a: #ffffff; --check-b: #e6e9ef; --scrim: rgba(16, 20, 28, .55);
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -27,14 +28,14 @@
   --bg: #0f1218; --panel: #161a22; --raise: #1d222c; --line: #2a303c; --fg: #e4e8f0; --muted: #8b95a8;
   --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #d8c27a; --qa-soft: #3a3320;
   --ok: #4cc38a; --err: #ff6b6b; --err-soft: #3d1c1e; --rec: #ff5b4f;
-  --t-num: #6cb3ef; --t-str: #7dcf86; --t-bool: #c49af0; --t-enum: #f0a36c; --t-color: #e58cc1; --t-vm: #a9b3c6; --t-trig: #ff8c42;
+  --t-vm: #c07428; --t-num: #6a61ff; --t-str: #f0533f; --t-bool: #e6ff52; --t-enum: #cd3cf3; --t-color: #e58cc1; --t-trig: #6ff546; --t-trig-fg: #0b1a05; --t-event: #70e8f8;
   --check-a: #1a1e26; --check-b: #222732; --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --bg: #0f1218; --panel: #161a22; --raise: #1d222c; --line: #2a303c; --fg: #e4e8f0; --muted: #8b95a8;
   --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #d8c27a; --qa-soft: #3a3320;
   --ok: #4cc38a; --err: #ff6b6b; --err-soft: #3d1c1e; --rec: #ff5b4f;
-  --t-num: #6cb3ef; --t-str: #7dcf86; --t-bool: #c49af0; --t-enum: #f0a36c; --t-color: #e58cc1; --t-vm: #a9b3c6; --t-trig: #ff8c42;
+  --t-vm: #c07428; --t-num: #6a61ff; --t-str: #f0533f; --t-bool: #e6ff52; --t-enum: #cd3cf3; --t-color: #e58cc1; --t-trig: #6ff546; --t-trig-fg: #0b1a05; --t-event: #70e8f8;
   --check-a: #1a1e26; --check-b: #222732; --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
 }
 html, body { height: 100%; }
@@ -138,13 +139,14 @@ body.resizing canvas { pointer-events: none; }
 .p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .p .own { color: var(--muted); }
 .p b { font-weight: 600; color: var(--fg); }
-.qa .p b { color: var(--qa); font-weight: 500; }
+.log .row.rt .p b { color: var(--t-trig); }
+.log .row.ev .p b { color: var(--t-event); font-weight: 500; }
 .log .row.qa { cursor: zoom-in; }
 .log .row.qa:hover { background: var(--qa-soft); }
 .cam { width: 24px; height: 22px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); display: grid; place-items: center; padding: 0; color: var(--qa); }
 .cam:hover { border-color: var(--qa); }
 .src { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 4px; text-align: center; }
-.src.file { color: var(--fire); background: var(--fire-soft); }
+.src.rive { color: var(--t-event); background: color-mix(in srgb, var(--t-event) 14%, transparent); }
 .src.you { color: var(--accent); background: var(--accent-soft); }
 .src.event { color: var(--t-bool); background: color-mix(in srgb, var(--t-bool) 15%, transparent); }
 .src.qa { color: var(--qa); background: var(--qa-soft); }
@@ -168,28 +170,28 @@ body.resizing canvas { pointer-events: none; }
 .csub .heat.hot { color: var(--fire); font-weight: 600; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 3px 0 5px; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; font: 500 11px var(--mono); max-width: 100%; }
-.chip::before { content: ""; border-left: 5px solid var(--t-trig); border-top: 4px solid transparent; border-bottom: 4px solid transparent; flex: none; }
+.chip::before { content: ""; border-left: 5px solid var(--t-event); border-top: 4px solid transparent; border-bottom: 4px solid transparent; flex: none; }
 .chip .tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip .n { font-size: 10px; color: var(--muted); background: var(--raise); border-radius: 8px; padding: 0 5px; min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
-.chip:hover { border-color: var(--t-trig); }
-.chip.qa { color: var(--qa); } .chip.qa::before { border-left-color: var(--qa); }
+.chip:hover { border-color: var(--t-event); }
+.chip.rt { border-color: color-mix(in srgb, var(--t-trig) 60%, transparent); background: color-mix(in srgb, var(--t-trig) 12%, var(--panel)); font-weight: 600; }
+.chip.rt::before { border-left-color: var(--t-trig); }
+.chip.rt:hover { border-color: var(--t-trig); }
 .chip.fired { animation: chipFire 700ms ease-out; }
 @keyframes chipFire { from { background: var(--fire-soft); border-color: var(--fire); } to { background: var(--panel); border-color: var(--line); } }
 .cards.hide-qa .chip.qa { display: none; }
 .cvals { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 8px; align-items: center; font: 11px/1.45 var(--mono); margin: 0; padding-top: 6px; border-top: 1px solid var(--line); }
-.cvals dt { color: var(--muted); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+.cvals dt { color: var(--muted); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; display: flex; align-items: center; gap: 5px; }
 .cvals dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .cvals dd.ro { cursor: pointer; }
 .cvals dt:hover, .cvals dd.ro:hover { color: var(--accent); }
 .cvals dd input, .cvals dd select { width: 100%; height: 22px; font: 11px var(--mono); padding: 0 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
 .cvals dd input[type=number] { font-variant-numeric: tabular-nums; }
-.cvals dd.changed { animation: ddChange 800ms ease-out; }
-.cvals .changed { animation: valChange 800ms ease-out; }
 @keyframes ddChange { from { color: var(--fire); } to { color: var(--fg); } }
 .cards.no-vals .cvals { display: none; }
 
 /* data (view model) panel */
-.vmhead { padding: 10px 12px 8px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.vmhead { padding: 14px 16px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
 .vmtitle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .vmtitle h2 { margin: 0; font-size: 13px; font-weight: 600; }
 .vmtitle .vmn { font: 500 12px var(--mono); color: var(--t-vm); }
@@ -206,13 +208,42 @@ body.resizing canvas { pointer-events: none; }
 .pinned { margin: 2px 12px 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--raise); padding: 2px 0; flex: none; max-height: 40%; overflow: auto; font: 12px/1 var(--mono); }
 .pinned .tr { padding-left: 10px; padding-right: 8px; background-image: none; }
 .pinned .tr:hover { background-color: var(--panel); }
-.treebar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; flex: none; }
+.treebar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; flex: none; }
 .treebar .count { margin-right: auto; }
 .linkbtn { border: 0; background: none; color: var(--accent); font-size: 12px; padding: 0 2px; }
 .vscroll { flex: 1; min-height: 0; overflow: auto; padding-bottom: 10px; }
 .tree { font: 12px/1 var(--mono); }
-.tr { --d: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 27px; padding: 1px 12px 1px calc(12px + var(--d) * 14px);
-  background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 14px); background-repeat: no-repeat; background-position: 18px 0; background-size: calc(var(--d) * 14px) 100%; }
+.tr { --d: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 30px; padding: 2px 16px 2px calc(16px + var(--d) * 16px);
+  background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 16px); background-repeat: no-repeat; background-position: 23px 0; background-size: calc(var(--d) * 16px) 100%; }
+/* the main view model: on top, larger */
+.sect { display: flex; align-items: baseline; gap: 8px; padding: 12px 16px 4px; font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .08em; color: var(--t-vm); }
+.sect .count { text-transform: none; letter-spacing: 0; }
+.tr.big { min-height: 38px; font-size: 13px; }
+.tr.big .ty { font-size: 10px; padding: 3px 5px; }
+.tr.big .val input[type=text], .tr.big .val input[type=number], .tr.big .val select { height: 28px; font-size: 13px; }
+/* main view model values: name on one line, a full-width editor under it */
+.tr.big:not(.trig):not(.vm) { grid-template-columns: minmax(0, 1fr); gap: 5px; padding-top: 7px; padding-bottom: 7px; }
+.tr.big .val { min-width: 0; justify-content: flex-start; }
+.tr.big .val > input[type=text], .tr.big .val > input[type=number], .tr.big .val > select { width: 100%; min-width: 0; }
+.tr.big.trig { grid-template-columns: minmax(0, 1fr) auto; }
+.tr.big .firebtn { height: 26px; font-size: 12px; }
+.maingap { height: 10px; border-bottom: 1px solid var(--line); margin: 0 16px 8px; }
+/* triggers fired from code: large green buttons, always on top */
+.tbtns { flex: none; padding: 12px 16px 4px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; max-height: 42%; overflow: auto; }
+.tbtn { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 46px; padding: 7px 10px; border-radius: 8px; text-align: left;
+  border: 1px solid color-mix(in srgb, var(--t-trig) 55%, transparent); background: color-mix(in srgb, var(--t-trig) 13%, var(--panel)); }
+.tbtn:hover { border-color: var(--t-trig); }
+.tbtn .ic { width: 0; height: 0; border-left: 9px solid var(--t-trig); border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+.tbtn .tx { min-width: 0; display: grid; gap: 2px; }
+.tbtn .nm { font: 600 12.5px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbtn .sub { font: 10.5px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbtn .n { font: 600 11px var(--mono); background: color-mix(in srgb, var(--t-trig) 20%, transparent); border-radius: 10px; padding: 1px 7px; min-width: 24px; text-align: center; font-variant-numeric: tabular-nums; }
+.tbtn.lead { grid-column: 1 / -1; min-height: 52px; background: var(--t-trig); border-color: var(--t-trig); color: var(--t-trig-fg); }
+.tbtn.lead .ic { border-left-color: var(--t-trig-fg); }
+.tbtn.lead .nm { font-size: 14px; }
+.tbtn.lead .sub { color: inherit; opacity: .7; }
+.tbtn.lead .n { background: color-mix(in srgb, var(--t-trig-fg) 18%, transparent); }
+.tbtn.fired { animation: actFire 700ms ease-out; }
 .tr:hover { background-color: var(--raise); }
 .tr .nm { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .tr .nm .k { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: copy; }
@@ -223,12 +254,15 @@ body.resizing canvas { pointer-events: none; }
 .ty.enumType { color: var(--t-enum); background: color-mix(in srgb, var(--t-enum) 13%, transparent); }
 .ty.color { color: var(--t-color); background: color-mix(in srgb, var(--t-color) 13%, transparent); }
 .ty.trigger { color: var(--t-trig); background: color-mix(in srgb, var(--t-trig) 13%, transparent); }
+.ty.event { color: var(--t-event); background: color-mix(in srgb, var(--t-event) 13%, transparent); }
+.ty.viewModel { color: var(--t-vm); background: color-mix(in srgb, var(--t-vm) 15%, transparent); }
+/* values set from code (no data bind writes them): a green runtime tag */
+.rtag { font: 600 9px var(--sans); text-transform: uppercase; letter-spacing: .05em; color: var(--t-trig); border: 1px solid color-mix(in srgb, var(--t-trig) 60%, transparent); border-radius: 3px; padding: 1px 4px; flex: none; }
 .ty.other { color: var(--muted); background: var(--raise); }
-.tr.qa .k { color: var(--qa); }
-.tr.qa .ty.trigger { color: var(--qa); background: var(--qa-soft); }
 .vscroll.hide-qa .tr.qa { display: none; }
 .tr.vm { font-weight: 600; }
-.tr.vm .vmt { font-weight: 400; color: var(--t-vm); font-size: 11px; }
+.tr.vm .k { color: var(--t-vm); }
+.tr.vm .vmt { font-weight: 400; color: var(--t-vm); font-size: 11px; opacity: .8; }
 .tr.vm .sum2 { font-weight: 400; color: var(--muted); font-size: 11px; }
 .caret { width: 16px; height: 16px; border: 0; background: none; padding: 0; display: grid; place-items: center; color: var(--muted); flex: none; }
 .caret::before { content: ""; border-left: 5px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform 120ms; }
@@ -245,8 +279,10 @@ body.resizing canvas { pointer-events: none; }
 @keyframes located { 0%, 40% { background-color: var(--accent-soft); } 100% { background-color: transparent; } }
 .tc { font-size: 10px; color: var(--muted); background: var(--raise); border-radius: 8px; padding: 2px 6px; min-width: 22px; text-align: center; font-variant-numeric: tabular-nums; }
 .firebtn { height: 22px; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 0 8px 0 6px; font: 600 11px var(--sans); display: inline-flex; align-items: center; gap: 4px; }
-.firebtn::before { content: ""; border-left: 6px solid var(--t-trig); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
-.firebtn:hover { border-color: var(--t-trig); }
+.firebtn::before { content: ""; border-left: 6px solid var(--t-event); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+.firebtn:hover { border-color: var(--t-event); }
+.tr.rt .firebtn::before { border-left-color: var(--t-trig); }
+.tr.rt .firebtn:hover { border-color: var(--t-trig); }
 .tr.trig.fired, .tr.vm.fired { animation: rowFire 700ms ease-out; }
 @keyframes rowFire { from { background-color: var(--fire-soft); } to { background-color: transparent; } }
 .sw { position: relative; width: 32px; height: 18px; border-radius: 9px; border: 1px solid var(--line); background: var(--raise); padding: 0; }
@@ -311,9 +347,8 @@ body.resizing canvas { pointer-events: none; }
       <div class="vmtitle"><h2>Data</h2><span class="vmn" id="vmName">no view model</span><div class="spacer"></div><button class="tog" id="tgQa2" aria-pressed="true" title="Show qa_* triggers">qa_*</button></div>
       <input id="filter" class="filter" type="text" placeholder="Filter by name or path (e.g. Cup_3, prize)" autocomplete="off" spellcheck="false">
     </div>
-    <div class="none" id="vmNone">Load a file to see its view model: triggers and values together, in the order the file lists them, with nested view models as one tree. <span class="mono">activate</span> stays pinned at the top.</div>
-    <button class="activate missing" id="actBtn" disabled hidden><span>▶</span><span><span class="nm">activate</span><br><span class="sub" id="actSub">not in this view model</span></span><span class="n" id="actN">0</span></button>
-    <div class="pinned" id="pinned" hidden></div>
+    <div class="none" id="vmNone">Load a file to see its view model. Triggers fired from code sit on top as large green buttons, <span class="mono">activate</span> first; the main view model comes next, then every nested one as a tree. Values set from code (no data bind in the file writes them) come first and carry a green <span class="rtag">runtime</span> tag.</div>
+    <div class="tbtns" id="tbtns" hidden aria-label="Triggers fired from code"></div>
     <div class="treebar" id="treeBar" hidden><span class="count" id="valCount"></span><button class="linkbtn" id="btnExpand">Expand all</button><button class="linkbtn" id="btnCollapse">Collapse all</button></div>
     <div class="vscroll" id="vScroll"><div class="tree" id="tree"></div></div>
   </aside>
@@ -361,11 +396,11 @@ body.resizing canvas { pointer-events: none; }
           <div class="spacer"></div>
           <button class="tog" id="tgQa" aria-pressed="true" title="Show qa_* triggers">qa_*</button>
           <button class="tog" id="tgYou" aria-pressed="true" title="Show triggers fired from this page">Fired here</button>
-          <button class="tog" id="tgEvents" aria-pressed="false" title="Show Rive Events (legacy events, not view model triggers)">Events</button>
+          <button class="tog" id="tgEvents" aria-pressed="false" title="Show legacy Rive Events (not view model triggers)">Legacy events</button>
           <button class="tog" id="btnCopyLog">Copy</button>
           <button class="tog" id="btnClear">Clear</button>
         </div>
-        <div class="log hide-events" id="log"><div class="hint" id="logEmpty">Every view model trigger is subscribed with <span class="mono">.on()</span>, in every nested view model and list item, the way the game integration listens. <span class="src file">file</span> fired by the .riv · <span class="src you">here</span> fired from this page · <span class="src qa">qa</span> a qa_ trigger: the artboard is screenshotted the frame it fires; click the row to see it.</div></div>
+        <div class="log hide-events" id="log"><div class="hint" id="logEmpty">Every view model trigger is subscribed with <span class="mono">.on()</span>, in every nested view model and list item, the way the game integration listens. <span class="src rive">rive</span> fired by the file (an event) · <span class="src you">here</span> fired from this page · <span class="src qa">qa</span> a qa_ trigger: the artboard is screenshotted the frame it fires; click the row to see it.</div></div>
       </section>
   </section>
 </main>
@@ -483,6 +518,72 @@ async function saveFile(blob, filename) {
 const baseName = () => (S.fileName || 'rive').replace(/\.riv$/i, '');
 const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
 
+/* ======================= data binds in the .riv ======================= */
+// Reads a .riv and reports, per view model property, whether the file itself writes it
+// (a data bind with direction target -> source or two-way whose source path ends on it).
+function parseRivBinds(buf) {
+  const u8 = new Uint8Array(buf); let p = 0;
+  const vu = () => { let r = 0, s = 0, b; do { b = u8[p++]; r += (b & 127) * 2 ** s; s += 7; } while (b & 128); return r; };
+  const u32 = () => { const v = u8[p] | (u8[p + 1] << 8) | (u8[p + 2] << 16) | (u8[p + 3] << 24); p += 4; return v >>> 0; };
+  const bytes = () => { const n = vu(); const b = u8.subarray(p, p + n); p += n; return b; };
+  const str = () => new TextDecoder().decode(bytes());
+  if (String.fromCharCode(u8[0], u8[1], u8[2], u8[3]) !== 'RIVE') throw new Error('not a .riv');
+  p = 4; const major = vu(); vu(); vu();
+  const keys = []; for (let k = vu(); k !== 0; k = vu()) keys.push(k);
+  const ft = new Map(); let word = 0, bit = 8;
+  for (const k of keys) { if (bit === 8) { word = u32(); bit = 0; } ft.set(k, (word >>> bit) & 3); bit += 2; }
+  // field type of every property key the 2.37-era runtime knows (from rive-runtime's core_registry): 0 varuint, 1 bytes/string, 2 float32, 3 uint32 color, 4 bool byte
+  const REG = {
+    0: [5,23,40,48,49,51,53,56,57,59,60,61,67,68,69,92,93,95,102,103,110,111,112,113,117,119,120,121,122,125,128,129,149,151,152,155,156,158,160,165,167,168,171,173,175,178,179,180,195,197,198,204,206,221,222,224,225,227,228,236,237,240,249,269,270,271,272,273,279,281,284,287,289,296,298,301,302,312,313,316,320,325,326,335,349,350,356,357,377,378,389,392,393,399,400,405,408,412,414,415,418,446,449,450,452,453,454,455,459,460,466,468,470,487,489,490,493,494,535,536,537,538,546,549,550,554,560,565,566,574,577,583,586,587,589,590,591,596,597,598,599,604,605,607,608,609,610,611,612,613,614,615,616,617,618,619,620,621,622,623,624,625,626,627,628,629,630,631,632,637,650,653,655,656,660,665,666,667,668,669,672,673,677,679,682,683,685,686,687,689,705,708,709,713,714,715,722,725,726,727,731,743,745,746,747,748,757,758,764,765,775,776,778,800,814,816,823,824,835,846,848,858,862,870,872,873,874,875,876,887,892,893,912,922,930,931,932,934,935,952,956,957,962,965,966,971,972,973,974,977,978,980,981,982,986,987,988,998,1010,1011,1015,1018,1019,1020,1021,1022,1026,1027,1028,1033,1045,1046,1047,1048,1049,1050,1059,1061,1062,1064,1068,1073,1074,1075,1076,1077,1078,1087,1094,1125,1127,1129,1137],
+    1: [4,55,138,203,212,223,246,248,268,280,359,362,481,482,485,486,557,561,572,578,579,582,588,635,654,662,711,744,766,817,866,868,871,911,920,926,963,983,984,985,1124,1126,1128],
+    2: [7,8,9,10,11,12,13,14,15,16,17,18,20,21,24,25,26,31,33,34,35,39,42,46,47,58,63,64,65,66,70,79,80,81,82,83,84,85,86,87,89,90,91,96,97,98,99,100,101,104,105,106,107,108,109,114,115,116,123,124,126,127,140,157,161,162,163,166,172,177,182,183,184,185,186,187,199,200,202,207,208,215,216,229,239,243,274,285,286,288,292,297,299,300,303,304,305,306,307,308,317,318,319,321,322,323,324,327,328,329,330,331,332,334,336,337,338,339,340,363,366,367,368,369,370,371,372,373,380,381,390,406,407,410,411,416,417,448,458,462,463,464,465,483,498,499,500,501,502,503,504,505,506,507,508,509,510,511,512,513,514,515,516,517,518,519,523,524,530,575,592,636,640,641,642,643,644,645,652,663,664,675,681,690,692,697,698,699,700,706,707,716,717,718,719,728,729,730,749,750,751,756,759,760,761,762,763,777,781,783,784,785,786,806,807,808,809,810,811,818,859,860,864,865,888,889,894,907,908,975,976,1023,1024,1029,1040,1041,1057,1058,1063,1065,1066,1067,1069,1070,1071,1103,1104,1105,1106,1107],
+    3: [37,38,88,447,555,638,651,836],
+    4: [32,41,50,62,94,141,164,174,181,188,189,190,191,192,193,194,196,201,238,245,315,333,364,365,376,419,420,451,456,457,461,467,541,593,606,634,639,647,676,691,693,703,724,734,752,770,779,782,850,851,891,895,914,921,953,954,955,979,989,990,991,992,993,994,995,996,997,1000,1001,1002,1003,1004,1005,1006,1007,1008,1009,1014,1025,1095,1098,1099]
+  };
+  const KNOWN = new Map(); for (const t in REG) for (const k of REG[t]) KNOWN.set(k, +t);
+  const VM = 435, PROP_TYPES = { 431: 'number', 443: 'string', 448: 'boolean', 440: 'color', 509: 'enumType', 439: 'enumType', 511: 'enumType', 502: 'trigger', 436: 'viewModel', 434: 'list', 563: 'symbol', 564: 'listIndex', 584: 'asset', 585: 'image', 598: 'artboard', 1034: 'font', 1043: 'blob' };
+  const vms = []; const binds = []; let unknownKey = null; let lastType = 0;
+  while (p < u8.length) {
+    const type = vu(); const props = {};
+    for (;;) {
+      const k = vu(); if (k === 0) break;
+      const f = KNOWN.has(k) ? KNOWN.get(k) : ft.get(k);
+      if (f === undefined) { unknownKey = k; break; }
+      if (f === 1) props[k] = k === 557 ? str() : bytes();
+      else if (f === 2 || f === 3) { props[k] = u32(); }
+      else if (f === 4) { props[k] = u8[p++]; }
+      else props[k] = vu();
+    }
+    if (unknownKey !== null) break;
+    if (!(588 in props)) lastType = type;
+    if (type === VM) vms.push({ name: props[557] || '', props: [] });
+    else if (PROP_TYPES[type] && vms.length) vms[vms.length - 1].props.push({ name: props[557], type: PROP_TYPES[type] || 'other:' + type, ref: props[565], written: false });
+    if (588 in props) {
+      const ids = []; const b = props[588]; let q = 0;
+      while (q < b.length) { let r = 0, s = 0, c; do { c = b[q++]; r += (c & 127) * 2 ** s; s += 7; } while (c & 128); ids.push(r); }
+      binds.push({ type, flags: props[587] || 0, target: props[586], ids, objType: lastType });
+    }
+  }
+  // name path of each property a bind writes, from the view model it starts at: "MainVM:final_prize/PrizeType"
+  const written = new Set();
+  let resolved = 0, skipped = 0;
+  for (const b of binds) {
+    if (!(b.flags & 3)) continue;           // toTarget only: Rive reads the property, does not write it
+    if (b.flags & 16) { skipped++; continue; } // name-based path: resolved by names at runtime
+    let vm = vms[b.ids[0]]; if (!vm || b.ids.length < 2) { skipped++; continue; }
+    let ok = true;
+    for (let i = 1; i < b.ids.length - 1; i++) { const pr = vm.props[b.ids[i]]; if (!pr || pr.ref === undefined) { ok = false; break; } vm = vms[pr.ref]; if (!vm) { ok = false; break; } }
+    const last = ok && vm.props[b.ids[b.ids.length - 1]];
+    if (last) {
+      last.written = true; resolved++;
+      const names = []; let v2 = vms[b.ids[0]];
+      for (let i = 1; i < b.ids.length; i++) { const pr = v2.props[b.ids[i]]; names.push(pr.name); if (pr.ref !== undefined) v2 = vms[pr.ref]; }
+      written.add(vms[b.ids[0]].name + ':' + names.join('/'));
+    } else skipped++;
+  }
+  return { major, vms, written, bindList: binds, binds: binds.length, toSource: resolved, skipped, complete: unknownKey === null, unknownKey };
+}
+
 /* ======================= loading ======================= */
 const stage = $('stage');
 async function loadFile(file) {
@@ -493,6 +594,8 @@ async function loadFile(file) {
 function loadBuffer(buf, name) {
   teardownCards(); disposeThumbFile();
   S.buf = buf; S.fileName = name || 'file.riv';
+  // which properties the file itself writes (data binds target -> source or two-way)
+  try { const b = parseRivBinds(buf); S.binds = b.complete ? b : null; } catch (e) { S.binds = null; }
   S.artboard = null; S.sm = null; S.inst = null; S.collapsed.clear();
   $('fname').textContent = S.fileName; $('fname').title = S.fileName;
   clearLog();
@@ -627,34 +730,75 @@ function bindTree() {
   S.triggers = []; S.values = []; S.vmNodes = [];
   const root = S.r && S.r.viewModelInstance;
   S.root = root || null;
-  $('vmNone').hidden = !!root; $('actBtn').hidden = !root; $('treeBar').hidden = !root;
-  $('tree').innerHTML = ''; $('pinned').innerHTML = ''; $('pinned').hidden = true;
+  $('vmNone').hidden = !!root; $('treeBar').hidden = !root;
+  $('tree').innerHTML = ''; $('tbtns').innerHTML = ''; $('tbtns').hidden = true;
   if (!root) {
     $('vmName').textContent = 'no view model';
     $('vmNone').textContent = 'This artboard has no view model bound (no default view model, or auto-bind found nothing).';
     return;
   }
   $('vmName').textContent = vmNameOf(root) || 'view model';
-  const tree = { kind: 'vm', name: '', path: '', depth: -1, children: [], parent: null };
+  const tree = { kind: 'vm', name: '', path: '', depth: -1, children: [], parent: null, vmName: vmNameOf(root) };
   walk(root, '', 0, tree);
   S.tree = tree;
+  classify();
   const gen = S.gen;
   for (const tr of S.triggers) {
     if (!tr.acc) continue;
     const cb = () => { if (gen === S.gen) onTrigger(tr); };
     try { tr.acc.on(cb); S.subs.push({ acc: tr.acc, cb }); } catch (e) {}
   }
-  // pinned: the root `activate`, else the shallowest `activate` anywhere
-  const acts = S.triggers.filter((t) => t.name === 'activate').sort((a, b) => a.depth - b.depth);
-  S.pinned = acts[0] || null;
-  const ab = $('actBtn'), pin = S.pinned;
-  ab.classList.toggle('missing', !pin); ab.disabled = !pin;
-  $('actSub').textContent = pin ? (pin.owner ? pin.path : (vmNameOf(root) || 'root')) : 'not in this view model';
-  $('actN').textContent = pin ? '0' : '–';
-  renderTree(); applyFilter();
+  renderTriggerButtons(); renderTree(); applyFilter();
   buildCards(gen);
 }
-$('actBtn').onclick = () => { if (S.pinned) fireTrigger(S.pinned); };
+
+// origin of every trigger and value: 'rive' when a data bind in the file writes it, 'runtime' when only code sets it.
+// A property is written when a bind's path, read from any view model above it, ends on it.
+function isWritten(n) {
+  if (!S.binds) return false;
+  let rel = n.name, a = n.parent;
+  while (a) {
+    if (a.vmName && S.binds.written.has(a.vmName + ':' + rel)) return true;
+    if (!a.parent) break;
+    rel = a.name + '/' + rel; a = a.parent;
+  }
+  return false;
+}
+const isMainName = (s) => /main/i.test(s || '');
+function classify() {
+  for (const n of [...S.triggers, ...S.values]) n.origin = !S.binds ? 'unknown' : isWritten(n) ? 'rive' : 'runtime';
+  S.mainNode = isMainName(S.tree.vmName) ? S.tree : (S.vmNodes.find((n) => !n.isList && (isMainName(n.vmName) || isMainName(n.name))) || null);
+}
+// Something the file classified as set-from-code turned out to be set by Rive (a script, an action the parser does not see): move it.
+function reclassify(n) {
+  if (n.origin !== 'runtime') return;
+  n.origin = 'rive'; clearTimeout(S.reclassT);
+  const run = () => {
+    const a = document.activeElement;
+    if (a && (a.closest('#tree') || a.closest('.cvals'))) { S.reclassT = setTimeout(run, 800); return; }
+    renderTriggerButtons(); renderTree(); applyFilter(); S.cards.forEach(fillCard);
+  };
+  S.reclassT = setTimeout(run, 300);
+}
+// green triggers (fired from code): large buttons on top, activate first
+function renderTriggerButtons() {
+  const box = $('tbtns'); box.innerHTML = '';
+  S.triggers.forEach((t) => (t.btn = null));
+  let list = S.binds ? S.triggers.filter((t) => t.origin === 'runtime') : S.triggers.filter((t) => t.name === 'activate');
+  const lead = list.filter((t) => t.name === 'activate').sort((a, b) => a.depth - b.depth)[0];
+  const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  list = list.filter((t) => t !== lead).sort((a, b) => (a.depth - b.depth) || natural(a.path, b.path));
+  if (lead) list.unshift(lead);
+  for (const t of list) {
+    const b = el('button', 'tbtn' + (t === lead ? ' lead' : ''));
+    b.title = 'Fire ' + t.path + ' (a trigger the game fires from code)';
+    const tx = el('span', 'tx'); tx.append(el('span', 'nm', t.name), el('span', 'sub', t.owner || (S.tree.vmName || 'root')));
+    b.append(el('span', 'ic'), tx, el('span', 'n', String(t.count)));
+    b.onclick = () => fireTrigger(t);
+    t.btn = b; box.appendChild(b);
+  }
+  box.hidden = !list.length;
+}
 
 /* ======================= triggers ======================= */
 function fireTrigger(t) {
@@ -671,10 +815,11 @@ function onTrigger(t) {
   // Trigger callbacks run at the end of the runtime's draw, after the frame is on the canvas: grab it now.
   const shot = t.qa ? captureShot() : null;
   if (shot) t.lastShot = shot;
-  if (t === S.pinned) { $('actN').textContent = String(t.count); flash($('actBtn')); }
+  if (src === 'file') reclassify(t);
+  if (t.btn && t.btn.isConnected) { t.btn.querySelector('.n').textContent = String(t.count); flash(t.btn); }
   if (t.row && t.row.isConnected) { t.row.querySelector('.tc').textContent = String(t.count); flash(t.row); const c = t.row.querySelector('.cam'); if (c) c.hidden = !t.lastShot; }
   const ownerRow = S.vmRows.get(t.owner); if (ownerRow && ownerRow.isConnected) flash(ownerRow);
-  const entry = { path: t.path, owner: t.owner, name: t.name, src, qa: t.qa, t: (vnow() - S.t0) / 1000, f: S.frame - S.f0, shot };
+  const entry = { path: t.path, owner: t.owner, name: t.name, src, qa: t.qa, origin: t.origin, t: (vnow() - S.t0) / 1000, f: S.frame - S.f0, shot };
   logRow(entry);
   cardTrigger(t, entry);
 }
@@ -718,13 +863,13 @@ function clearLog() {
   logBox.querySelectorAll('.row').forEach((r) => r.remove());
   $('logEmpty').hidden = false; $('logCount').textContent = '0';
   for (const t of S.triggers) { t.count = 0; if (t.row && t.row.isConnected) t.row.querySelector('.tc').textContent = '0'; }
-  if (S.pinned) $('actN').textContent = '0';
+  for (const t of S.triggers) if (t.btn) t.btn.querySelector('.n').textContent = '0';
   for (const c of S.cards) { c.chips.forEach((ch) => (ch.querySelector('.n').textContent = '0')); c.heat.textContent = ''; c.heat.classList.remove('hot'); }
 }
-function srcLabel(e) { return e.src === 'you' ? 'here' : e.src === 'event' ? 'event' : e.qa ? 'qa' : 'file'; }
+function srcLabel(e) { return e.src === 'you' ? 'here' : e.src === 'event' ? 'event' : e.qa ? 'qa' : 'rive'; }
 function logRow(e) {
   const kind = e.src === 'event' ? 'event' : e.src === 'you' ? 'you' : e.qa ? 'qa' : 'file';
-  const row = el('div', 'row new ' + kind);
+  const row = el('div', 'row new ' + kind + (e.origin === 'runtime' ? ' rt' : e.origin === 'rive' ? ' ev' : ''));
   const p = el('span', 'p'); p.title = e.path;
   if (e.owner) p.appendChild(el('span', 'own', e.owner + '/'));
   p.appendChild(el('b', null, e.name));
@@ -760,32 +905,44 @@ function typeLabel(t) { return { number: 'num', integer: 'int', string: 'str', b
 function hex8(v) { return ('00000000' + (v >>> 0).toString(16).toUpperCase()).slice(-8); }
 const KNOWN = ['number', 'integer', 'string', 'boolean', 'enumType', 'color', 'trigger'];
 
-// Numbers of the main view model stay pinned on top, under activate.
-const isPinnedNum = (n) => n.kind === 'value' && n.parent === S.tree && (n.type === 'number' || n.type === 'integer');
+// Inside each view model: values set from code first (numbers first in the main one), then values Rive sets,
+// then events, then nested view models (file order within each group).
+const isNum = (c) => c.type === 'number' || c.type === 'integer';
+function orderedKids(n) {
+  const rank = (c) => c.kind === 'value' ? (c.origin === 'runtime' ? (n === S.mainNode && isNum(c) ? 0 : 1) : 2) : c.kind === 'trigger' ? 3 : 4;
+  return n.children.map((c, i) => [c, i]).sort((a, b) => (rank(a[0]) - rank(b[0])) || ((b[0] === S.mainNode) - (a[0] === S.mainNode)) || (a[1] - b[1])).map((x) => x[0]);
+}
 function renderTree() {
   const box = $('tree'); box.innerHTML = ''; S.vmRows.clear();
-  const pin = $('pinned'); pin.innerHTML = '';
-  const nums = S.tree.children.filter(isPinnedNum);
-  nums.forEach((v) => pin.appendChild(valueRow(v)));
-  pin.hidden = !nums.length;
+  const main = S.mainNode;
   const add = (n) => {
-    if (n.kind === 'trigger') { if (n !== S.pinned) box.appendChild(triggerRow(n)); return; }
-    if (n.kind === 'value') { if (!isPinnedNum(n)) box.appendChild(valueRow(n)); return; }
-    const row = el('div', 'tr vm'); row.style.setProperty('--d', n.depth); row.dataset.path = n.path;
+    if (n.kind === 'trigger') { if (!n.btn) box.appendChild(triggerRow(n)); return; }
+    if (n.kind === 'value') { box.appendChild(valueRow(n)); return; }
+    const row = el('div', 'tr vm' + (n === main ? ' big' : '')); row.style.setProperty('--d', n.depth); row.dataset.path = n.path;
     const exp = !S.collapsed.has(n.path); row.setAttribute('aria-expanded', String(exp));
     const nm = el('div', 'nm');
     const car = el('button', 'caret'); car.setAttribute('aria-label', (exp ? 'Collapse ' : 'Expand ') + n.path);
     const k = el('span', 'k', n.name); k.title = n.path + ' (click to copy the path)'; k.onclick = () => copyText(n.path, n.path);
-    nm.append(car, k);
+    nm.append(car, el('span', 'ty viewModel', n.isList ? 'list' : 'vm'), k);
     if (n.vmName && n.vmName !== n.name) nm.appendChild(el('span', 'vmt', n.vmName));
     const c = countKids(n);
     row.append(nm, el('span', 'sum2', c.v + ' val' + (c.t ? ' · ' + c.t + ' trig' : '')));
     car.onclick = () => { S.collapsed.has(n.path) ? S.collapsed.delete(n.path) : S.collapsed.add(n.path); renderTree(); applyFilter(); };
     row.ondblclick = (e) => { if (e.target !== k) car.onclick(); };
     box.appendChild(row); S.vmRows.set(n.path, row);
-    if (exp) n.children.forEach(add);
+    if (exp) orderedKids(n).forEach(add);
   };
-  S.tree.children.forEach(add);
+  if (main === S.tree) {
+    const c = countKids(S.tree);
+    const h = el('div', 'sect'); h.append(el('span', null, S.tree.vmName || 'Main'), el('span', 'count', 'main view model'));
+    box.appendChild(h);
+    orderedKids(S.tree).filter((c) => c.kind !== 'vm').forEach(add);
+    box.appendChild(el('div', 'maingap'));
+    orderedKids(S.tree).filter((c) => c.kind === 'vm').forEach(add);
+  } else {
+    if (main) add(main);
+    orderedKids(S.tree).filter((c) => c !== main).forEach(add);
+  }
   $('valCount').textContent = `${S.values.length} values · ${S.triggers.length} triggers`;
   if (!S.tree.children.length) box.appendChild(el('div', 'none', 'This view model has no properties.'));
 }
@@ -796,10 +953,12 @@ function countKids(n) {
 }
 
 function triggerRow(t) {
-  const row = el('div', 'tr trig' + (t.qa ? ' qa' : '')); row.style.setProperty('--d', t.depth); row.dataset.path = t.path;
+  const rt = t.origin === 'runtime' || t.origin === 'unknown';
+  const row = el('div', 'tr trig' + (t.qa ? ' qa' : '') + (rt ? ' rt' : '') + (t.parent === S.mainNode ? ' big' : '')); row.style.setProperty('--d', t.depth); row.dataset.path = t.path;
   const nm = el('div', 'nm');
   const k = el('span', 'k', t.name); k.title = t.path + ' (click to copy the path)'; k.onclick = () => copyText(t.path, t.path);
-  nm.append(el('span', 'ty trigger', 'trig'), k);
+  nm.append(rt ? el('span', 'ty trigger', 'trig') : el('span', 'ty event', 'event'), k);
+  if (!rt) row.title = 'Event: fired by the file (a data bind in the .riv writes it)';
   const val = el('div', 'val');
   if (t.qa) {
     const cam = el('button', 'cam'); cam.innerHTML = CAM; cam.title = 'Show the last screenshot of ' + t.path; cam.setAttribute('aria-label', cam.title); cam.hidden = !t.lastShot;
@@ -814,10 +973,11 @@ function triggerRow(t) {
 }
 
 function valueRow(v) {
-  const row = el('div', 'tr'); row.style.setProperty('--d', v.depth); row.dataset.path = v.path;
+  const row = el('div', 'tr' + (v.parent === S.mainNode ? ' big' : '')); row.style.setProperty('--d', v.depth); row.dataset.path = v.path;
   const nm = el('div', 'nm');
   const k = el('span', 'k', v.name); k.title = v.path + ' (click to copy the path)'; k.onclick = () => copyText(v.path, v.path);
   nm.append(el('span', 'ty ' + (KNOWN.includes(v.type) ? v.type : 'other'), typeLabel(v.type)), k);
+  if (v.origin === 'runtime') { const rt = el('span', 'rtag', 'runtime'); rt.title = 'Set from code: no data bind in the file writes it'; nm.appendChild(rt); }
   const val = el('div', 'val');
   const a = v.acc; const id = 'v_' + v.path.replace(/[^\w]/g, '_');
   let ctl = null;
@@ -864,7 +1024,7 @@ function syncValue(v, initial) {
   if (v.type === 'boolean') { v.ctl.setAttribute('aria-checked', String(!!cur)); v.bv.textContent = cur ? 'true' : 'false'; }
   else if (v.type === 'color') { const h = hex8(cur); if (!focused) v.ctl.value = h; v.pick.value = '#' + h.slice(2); }
   else if (!focused) v.ctl.value = cur == null ? '' : String(cur);
-  if (fromFile) flash(v.row, 'changed');
+  if (fromFile) { flash(v.row, 'changed'); reclassify(v); }
 }
 setInterval(() => {
   if (!S.r || !S.root) return;
@@ -998,7 +1158,7 @@ function renderCard(card) {
   const th = el('div', 'thumb'); th.title = `${card.ab.artboard} (live, mirrors ${n.path}). Click to show it in the data tree`;
   th.onclick = () => revealInTree(n.path);
   const cv = el('canvas'); th.appendChild(cv); card.canvas = cv;
-  const body = el('div', 'cbody');
+  const body = el('div', 'cbody'); card.body = body;
   const title = el('div', 'ctitle');
   const b = el('b', null, n.path); b.title = 'Show ' + n.path + ' in the data tree'; b.onclick = () => revealInTree(n.path);
   card.heat = el('span', 'heat');
@@ -1006,18 +1166,33 @@ function renderCard(card) {
   const sub = el('div', 'csub');
   const abl = el('span', 'abl', card.ab.artboard + (card.ab.sm ? ' · ' + card.ab.sm : '')); abl.title = 'Thumbnail: artboard ' + abl.textContent;
   sub.append(abl, card.heat);
+  body.append(title, sub);
+  c.append(th, body);
+  card.el = c;
+  fillCard(card);
+}
+
+// the card's triggers (from code first, green) and values (set from code first, with the runtime tag)
+function fillCard(card) {
+  const c = card.el, body = card.body;
+  body.querySelectorAll('.chips').forEach((e) => e.remove()); c.querySelectorAll('.cvals').forEach((e) => e.remove());
+  card.chips = [];
+  const rtFirst = (arr, get) => arr.map((x, i) => [x, i]).sort((a, b) => ((get(b[0]).origin === 'runtime') - (get(a[0]).origin === 'runtime')) || (a[1] - b[1])).map((x) => x[0]);
   const chips = el('div', 'chips');
-  card.trigs.forEach(({ t, rel }) => {
-    const ch = el('button', 'chip' + (t.qa ? ' qa' : ''));
-    ch.title = 'Fire ' + t.path;
+  rtFirst(card.trigs, (x) => x.t).forEach(({ t, rel }) => {
+    const rt = t.origin === 'runtime';
+    const ch = el('button', 'chip' + (t.qa ? ' qa' : '') + (rt ? ' rt' : ''));
+    ch.title = (rt ? 'Fire ' : 'Fire (an event the file fires itself) ') + t.path;
     ch.append(el('span', 'tn', rel), el('span', 'n', String(t.count)));
     ch.onclick = () => fireTrigger(t);
     ch._t = t; card.chips.push(ch); chips.appendChild(ch);
   });
   const dl = el('dl', 'cvals');
-  card.vals.forEach((x) => {
+  rtFirst(card.vals, (x) => x.v).forEach((x) => {
     const v = x.v, a = v.acc;
+    x.ctl = null; x.shown = undefined;
     const dt = el('dt', null, x.rel); dt.title = v.path + ' (click to show it in the data tree)';
+    if (v.origin === 'runtime') dt.appendChild(el('span', 'rtag', 'runtime'));
     dt.onclick = () => revealInTree(v.path);
     const dd = el('dd'); x.dd = dd;
     const mark = () => { v.userAt = performance.now(); };
@@ -1042,11 +1217,9 @@ function renderCard(card) {
     }
     dl.append(dt, dd);
   });
-  body.append(title, sub);
   if (card.trigs.length) body.appendChild(chips);
-  c.append(th, body);
   if (card.vals.length) c.appendChild(dl);
-  card.el = c;
+  syncCard(card);
 }
 
 function startThumb(card, gen) {
@@ -1087,12 +1260,9 @@ function syncCard(card) {
   for (const x of card.vals) {
     const cur = readValue(x.v);
     if (cur !== x.shown) {
-      const changed = x.shown !== undefined;
       x.shown = cur;
-      if (x.ctl) {
-        if (document.activeElement !== x.ctl) x.ctl.value = cur == null ? '' : String(cur);
-        if (changed && performance.now() - x.v.userAt > 400) flash(x.ctl, 'changed');
-      } else if (x.dd) { x.dd.textContent = fmtVal(x.v, cur); if (changed) flash(x.dd, 'changed'); }
+      if (x.ctl) { if (document.activeElement !== x.ctl) x.ctl.value = cur == null ? '' : String(cur); }
+      else if (x.dd) x.dd.textContent = fmtVal(x.v, cur);
     }
     if (card.tInst && cur !== undefined && cur !== x.mirrored) {
       const a = thumbAcc(card, x.rel, x.v.type);
@@ -1105,7 +1275,10 @@ function syncCards() { for (const c of S.cards) syncCard(c); }
 
 function cardTrigger(t, entry) {
   const cards = S.cardOf.get(t); if (!cards) return;
+  const box = $('cards');
   for (const card of cards) {
+    const first = box.querySelector('.card');
+    if (first && first !== card.el) box.insertBefore(card.el, first);
     flash(card.el);
     const ch = card.chips.find((x) => x._t === t);
     if (ch) { ch.querySelector('.n').textContent = String(t.count); flash(ch); }
