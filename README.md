@@ -15,6 +15,8 @@ Files never leave your browser: nothing is uploaded anywhere.
   - Every value is editable and every trigger can be fired.
 - **Colors by type:** view model brown, number blue, string red, boolean yellow, enum purple, trigger green (fired from code), event cyan (fired by Rive, through actions or property groups bound object to source), qa_ triggers orange.
 - **How origins are read:** the inspector reads the data binds stored in the `.riv` itself. A property that a bind writes (target to source, or two-way) is set by Rive; everything else is set from code. If the file later fires or changes something it classified as set from code, it moves it over.
+  - Writes from a state machine layer named **DEMO** don't count: a trigger or value only a DEMO layer writes stays a runtime one (its fires show as `demo` in the log). Anything also written from another layer or a listener is still set by Rive.
+  - `activate` always leads the buttons on top, wherever it is and whatever sets it.
 - **Player:** the artboard running in 2.37.6, sized for portrait (mobile) artboards. Pick the artboard, state machine, view model instance and fit, and play at 0.25× to 4× speed.
 - **Nested objects:** a card for every nested view model that is bound to an artboard (a component such as a cup or a prize). Each card shows:
   - that artboard as a live thumbnail

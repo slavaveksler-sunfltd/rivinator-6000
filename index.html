@@ -147,6 +147,7 @@ body.resizing canvas { pointer-events: none; }
 .cam { width: 24px; height: 22px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); display: grid; place-items: center; padding: 0; color: var(--qa); }
 .cam:hover { border-color: var(--qa); }
 .src { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 4px; text-align: center; }
+.src.demo { color: var(--t-trig); background: color-mix(in srgb, var(--t-trig) 14%, transparent); }
 .src.rive { color: var(--t-event); background: color-mix(in srgb, var(--t-event) 14%, transparent); }
 .src.you { color: var(--accent); background: var(--accent-soft); }
 .src.event { color: var(--t-bool); background: color-mix(in srgb, var(--t-bool) 15%, transparent); }
@@ -404,7 +405,7 @@ body.resizing canvas { pointer-events: none; }
           <button class="tog" id="btnCopyLog">Copy</button>
           <button class="tog" id="btnClear">Clear</button>
         </div>
-        <div class="log hide-events" id="log"><div class="hint" id="logEmpty">Every view model trigger is subscribed with <span class="mono">.on()</span>, in every nested view model and list item, the way the game integration listens. <span class="src rive">rive</span> fired by the file (an event) · <span class="src you">here</span> fired from this page · <span class="src qa">qa</span> a qa_ trigger: the artboard is screenshotted the frame it fires; click the row to see it.</div></div>
+        <div class="log hide-events" id="log"><div class="hint" id="logEmpty">Every view model trigger is subscribed with <span class="mono">.on()</span>, in every nested view model and list item, the way the game integration listens. <span class="src rive">rive</span> fired by the file (an event) · <span class="src demo">demo</span> a runtime trigger fired by the file's DEMO layer · <span class="src you">here</span> fired from this page · <span class="src qa">qa</span> a qa_ trigger: the artboard is screenshotted the frame it fires; click the row to see it.</div></div>
       </section>
   </section>
 </main>
@@ -547,29 +548,35 @@ function parseRivBinds(buf) {
   const KNOWN = new Map(); for (const t in REG) for (const k of REG[t]) KNOWN.set(k, +t);
   const VM = 435, PROP_TYPES = { 431: 'number', 443: 'string', 448: 'boolean', 440: 'color', 509: 'enumType', 439: 'enumType', 511: 'enumType', 502: 'trigger', 436: 'viewModel', 434: 'list', 563: 'symbol', 564: 'listIndex', 584: 'asset', 585: 'image', 598: 'artboard', 1034: 'font', 1043: 'blob' };
   const vms = []; const binds = []; let unknownKey = null; let lastType = 0;
+  // the state machine layer the stream is in: binds that follow a layer belong to it until a listener, state machine or artboard starts
+  let layer = null;
   while (p < u8.length) {
     const type = vu(); const props = {};
     for (;;) {
       const k = vu(); if (k === 0) break;
       const f = KNOWN.has(k) ? KNOWN.get(k) : ft.get(k);
       if (f === undefined) { unknownKey = k; break; }
-      if (f === 1) props[k] = k === 557 ? str() : bytes();
+      if (f === 1) props[k] = (k === 557 || k === 138) ? str() : bytes();
       else if (f === 2 || f === 3) { props[k] = u32(); }
       else if (f === 4) { props[k] = u8[p++]; }
       else props[k] = vu();
     }
     if (unknownKey !== null) break;
     if (!(588 in props)) lastType = type;
+    if (type === 57) layer = props[138] || '';
+    else if (type === 53 || type === 1 || type === 114 || type === 654) layer = null;
     if (type === VM) vms.push({ name: props[557] || '', props: [] });
     else if (PROP_TYPES[type] && vms.length) vms[vms.length - 1].props.push({ name: props[557], type: PROP_TYPES[type] || 'other:' + type, ref: props[565], written: false });
     if (588 in props) {
       const ids = []; const b = props[588]; let q = 0;
       while (q < b.length) { let r = 0, s = 0, c; do { c = b[q++]; r += (c & 127) * 2 ** s; s += 7; } while (c & 128); ids.push(r); }
-      binds.push({ type, flags: props[587] || 0, target: props[586], ids, objType: lastType });
+      binds.push({ type, flags: props[587] || 0, target: props[586], ids, objType: lastType, layer });
     }
   }
   // name path of each property a bind writes, from the view model it starts at: "MainVM:final_prize/PrizeType"
-  const written = new Set();
+  // writes from a state machine layer named DEMO do not make a property Rive-set: kept apart in `demo`
+  const written = new Set(), demo = new Set();
+  const isDemo = (l) => l != null && l.trim().toUpperCase() === 'DEMO';
   let resolved = 0, skipped = 0;
   for (const b of binds) {
     if (!(b.flags & 3)) continue;           // toTarget only: Rive reads the property, does not write it
@@ -582,10 +589,10 @@ function parseRivBinds(buf) {
       last.written = true; resolved++;
       const names = []; let v2 = vms[b.ids[0]];
       for (let i = 1; i < b.ids.length; i++) { const pr = v2.props[b.ids[i]]; names.push(pr.name); if (pr.ref !== undefined) v2 = vms[pr.ref]; }
-      written.add(vms[b.ids[0]].name + ':' + names.join('/'));
+      (isDemo(b.layer) ? demo : written).add(vms[b.ids[0]].name + ':' + names.join('/'));
     } else skipped++;
   }
-  return { major, vms, written, bindList: binds, binds: binds.length, toSource: resolved, skipped, complete: unknownKey === null, unknownKey };
+  return { major, vms, written, demo, bindList: binds, binds: binds.length, toSource: resolved, skipped, complete: unknownKey === null, unknownKey };
 }
 
 /* ======================= loading ======================= */
@@ -758,11 +765,12 @@ function bindTree() {
 
 // origin of every trigger and value: 'rive' when a data bind in the file writes it, 'runtime' when only code sets it.
 // A property is written when a bind's path, read from any view model above it, ends on it.
-function isWritten(n) {
+function isWritten(n, set) {
   if (!S.binds) return false;
+  set = set || S.binds.written;
   let rel = n.name, a = n.parent;
   while (a) {
-    if (a.vmName && S.binds.written.has(a.vmName + ':' + rel)) return true;
+    if (a.vmName && set.has(a.vmName + ':' + rel)) return true;
     if (!a.parent) break;
     rel = a.name + '/' + rel; a = a.parent;
   }
@@ -770,12 +778,16 @@ function isWritten(n) {
 }
 const isMainName = (s) => /main/i.test(s || '');
 function classify() {
-  for (const n of [...S.triggers, ...S.values]) n.origin = !S.binds ? 'unknown' : isWritten(n) ? 'rive' : 'runtime';
+  for (const n of [...S.triggers, ...S.values]) {
+    n.origin = !S.binds ? 'unknown' : isWritten(n) ? 'rive' : 'runtime';
+    // written only by a state machine layer named DEMO: still a runtime property, and seeing the file fire it changes nothing
+    n.demo = !!S.binds && n.origin === 'runtime' && isWritten(n, S.binds.demo);
+  }
   S.mainNode = isMainName(S.tree.vmName) ? S.tree : (S.vmNodes.find((n) => !n.isList && (isMainName(n.vmName) || isMainName(n.name))) || null);
 }
 // Something the file classified as set-from-code turned out to be set by Rive (a script, an action the parser does not see): move it.
 function reclassify(n) {
-  if (n.origin !== 'runtime') return;
+  if (n.origin !== 'runtime' || n.demo) return;
   n.origin = 'rive'; clearTimeout(S.reclassT);
   const run = () => {
     const a = document.activeElement;
@@ -790,9 +802,10 @@ function renderTriggerButtons() {
   const box = $('tbtns'); box.innerHTML = '';
   S.triggers.forEach((t) => (t.btn = null));
   const main = S.mainNode || S.tree;
-  let list = S.triggers.filter((t) => t.parent === main && (S.binds ? t.origin === 'runtime' : t.name === 'activate'));
-  const lead = list.find((t) => t.name === 'activate');
-  if (lead) list = [lead, ...list.filter((t) => t !== lead)];
+  // activate always comes first, whatever its origin or view model
+  const lead = S.triggers.filter((t) => t.name === 'activate').sort((a, b) => a.depth - b.depth)[0];
+  let list = S.triggers.filter((t) => t !== lead && t.parent === main && S.binds && t.origin === 'runtime');
+  if (lead) list = [lead, ...list];
   for (const t of list) {
     const b = el('button', 'tbtn' + (t === lead ? ' lead' : ''));
     b.title = 'Fire ' + t.path + ' (a trigger the game fires from code)';
@@ -823,7 +836,7 @@ function onTrigger(t) {
   if (t.btn && t.btn.isConnected) { t.btn.querySelector('.n').textContent = String(t.count); flash(t.btn); }
   if (t.row && t.row.isConnected) { t.row.querySelector('.tc').textContent = String(t.count); flash(t.row); const c = t.row.querySelector('.cam'); if (c) c.hidden = !t.lastShot; }
   const ownerRow = S.vmRows.get(t.owner); if (ownerRow && ownerRow.isConnected) flash(ownerRow);
-  const entry = { path: t.path, owner: t.owner, name: t.name, src, qa: t.qa, origin: t.origin, t: (vnow() - S.t0) / 1000, f: S.frame - S.f0, shot };
+  const entry = { path: t.path, owner: t.owner, name: t.name, src, qa: t.qa, origin: t.origin, demo: src === 'file' && t.demo, t: (vnow() - S.t0) / 1000, f: S.frame - S.f0, shot };
   logRow(entry);
   cardTrigger(t, entry);
 }
@@ -870,7 +883,7 @@ function clearLog() {
   for (const t of S.triggers) if (t.btn) t.btn.querySelector('.n').textContent = '0';
   for (const c of S.cards) { c.chips.forEach((ch) => (ch.querySelector('.n').textContent = '0')); c.heat.textContent = ''; c.heat.classList.remove('hot'); }
 }
-function srcLabel(e) { return e.src === 'you' ? 'here' : e.src === 'event' ? 'event' : e.qa ? 'qa' : 'rive'; }
+function srcLabel(e) { return e.src === 'you' ? 'here' : e.src === 'event' ? 'event' : e.qa ? 'qa' : e.demo ? 'demo' : 'rive'; }
 function logRow(e) {
   const kind = e.src === 'event' ? 'event' : e.src === 'you' ? 'you' : e.qa ? 'qa' : 'file';
   const row = el('div', 'row new ' + kind + (e.origin === 'runtime' ? ' rt' : e.origin === 'rive' ? ' ev' : ''));
