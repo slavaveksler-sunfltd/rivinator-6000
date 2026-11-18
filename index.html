@@ -414,8 +414,8 @@ body.resizing canvas { pointer-events: none; }
     <div class="none" id="vmNone">Load a file to see its view model. Triggers fired from code sit on top as large green buttons, <span class="mono">activate</span> first; the main view model comes next, then every nested one as a tree. Values set from code (no data bind in the file writes them) come first and carry a green <span class="rtag">runtime</span> tag.</div>
     <div class="toprow" id="topRow" hidden>
       <div class="tbtns" id="tbtns" hidden aria-label="Triggers fired from code"></div>
-      <button class="icbtn" id="btnPlay" disabled title="Pause" aria-label="Pause"></button>
       <button class="icbtn" id="btnRestart" disabled title="Restart: reload the file from the start (resets every value)" aria-label="Restart"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 10a5.5 5.5 0 1 1-1.8-4.07" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M15.9 3.2v4.2h-4.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="icbtn" id="btnClose" disabled title="Close the .riv file" aria-label="Close the .riv file"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     </div>
     <div class="treebar" id="treeBar" hidden><span class="count" id="valCount"></span><button class="linkbtn" id="btnExpand">Expand all</button><button class="linkbtn" id="btnCollapse">Collapse all</button></div>
     <div class="vscroll" id="vScroll"><div class="tree" id="tree"></div></div>
@@ -847,13 +847,13 @@ function onLoaded() {
   }
   if (!S.artboard) S.artboard = firstArtboard();
   try { r.resizeDrawingSurfaceToCanvas(DPR()); } catch (e) {}
-  S.playing = true; setPlayUI(true); $('topRow').hidden = false;
+  S.playing = true; $('topRow').hidden = false;
   S.t0 = vnow(); S.f0 = S.frame; perfReset();
   $('liveDot').classList.add('live');
   fillSelectors(); bindTree();
   $('dims').hidden = false;
   $('dims').textContent = `${S.artboard} · ${Math.round(r.artboardWidth)}×${Math.round(r.artboardHeight)} · ${S.sm || 'no state machine'}`;
-  ['btnPlay', 'btnRestart', 'btnRec'].forEach((id) => ($(id).disabled = false));
+  ['btnClose', 'btnRestart', 'btnRec'].forEach((id) => ($(id).disabled = false));
   flushReady(true);
 }
 function firstArtboard() { try { const c = S.r.contents; return c && c.artboards && c.artboards[0] ? c.artboards[0].name : null; } catch (e) { return null; } }
@@ -1764,21 +1764,27 @@ $('selFit').onchange = (e) => {
   if (S.r) { try { S.r.layout = new RT.Layout({ fit: RT.Fit[S.fit], alignment: RT.Alignment.Center }); S.r.resizeDrawingSurfaceToCanvas(DPR()); } catch (err) {} }
 };
 $('selSpeed').onchange = (e) => { CLK.setSpeed(Number(e.target.value)); };
-$('btnPlay').onclick = () => {
-  if (!S.r) return;
-  const all = [S.r, ...S.cards.map((c) => c.tr).filter(Boolean)];
-  if (S.playing) { all.forEach((r) => { try { r.pause(); } catch (e) {} }); S.playing = false; setPlayUI(false); $('liveDot').classList.remove('live'); }
-  else { all.forEach((r) => { try { r.play(); } catch (e) {} }); S.playing = true; setPlayUI(true); $('liveDot').classList.add('live'); }
-};
 $('btnRestart').onclick = () => { clearLog(); boot(); };
-function setPlayUI(playing) {
-  const b = $('btnPlay');
-  b.innerHTML = playing
-    ? '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3.4" height="12" rx="1" fill="currentColor"/><rect x="11.6" y="4" width="3.4" height="12" rx="1" fill="currentColor"/></svg>'
-    : '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4.2v11.6a.8.8 0 0 0 1.2.7l9.3-5.8a.8.8 0 0 0 0-1.4L7.2 3.5a.8.8 0 0 0-1.2.7z" fill="currentColor"/></svg>';
-  b.title = playing ? 'Pause' : 'Play'; b.setAttribute('aria-label', b.title);
+// Close the file: unload the runtime and the thumbnails, and put every window back to its empty state.
+const VM_NONE_HTML = $('vmNone').innerHTML;
+function closeFile() {
+  if (REC.rec) stopRecording();
+  S.gen++;
+  teardown(); disposeThumbFile();
+  Object.assign(S, { buf: null, fileName: '', artboard: null, sm: null, inst: null, binds: null, root: null, tree: null, mainNode: null,
+    triggers: [], values: [], vmNodes: [], textNodes: [], textCtls: [], ready: [] });
+  clearLog(); perfReset();
+  $('tree').innerHTML = ''; $('tbtns').innerHTML = ''; $('tbtns').hidden = true; $('topRow').hidden = true; $('treeBar').hidden = true;
+  $('vmNone').innerHTML = VM_NONE_HTML; $('vmNone').hidden = false; $('vmName').textContent = 'no view model';
+  $('textsBody').innerHTML = ''; $('textsPanel').hidden = true;
+  $('cardsEmpty').hidden = false; $('nestCount').textContent = '';
+  ['selArtboard', 'selSm', 'selInst'].forEach((id) => { $(id).innerHTML = ''; $(id).disabled = true; });
+  ['btnClose', 'btnRestart', 'btnRec'].forEach((id) => ($(id).disabled = true));
+  $('dims').hidden = true; $('empty').hidden = false; showMsg('');
+  $('fname').textContent = 'No file loaded'; $('fname').title = ''; $('liveDot').classList.remove('live');
+  $('viewer').hidden = true;
 }
-setPlayUI(true);
+$('btnClose').onclick = closeFile;
 document.querySelectorAll('.swatch').forEach((b) => b.onclick = () => {
   document.querySelectorAll('.swatch').forEach((x) => setPressed(x, x === b));
   stage.classList.remove('bg-dark', 'bg-light'); S.bg = b.dataset.bg; if (S.bg) stage.classList.add(S.bg);
