@@ -286,7 +286,7 @@ body.resizing canvas { pointer-events: none; }
 .maingap { height: 10px; border-bottom: 1px solid var(--line); margin: 0 16px 8px; }
 /* triggers fired from code: large green buttons, always on top */
 .toprow { flex: none; display: flex; align-items: stretch; gap: 8px; padding: 12px 16px 4px; }
-.toprow .tbtns { flex: 1; min-width: 0; padding: 0; }
+.toprow .tbtns { flex: 1; min-width: 0; padding: 0; max-height: none; overflow: visible; }
 .icbtn { flex: none; width: 52px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--raise); border-radius: 8px; color: var(--fg); padding: 0; }
 .icbtn:first-of-type { margin-left: auto; }
 .icbtn:hover { border-color: var(--muted); }
