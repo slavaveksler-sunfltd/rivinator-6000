@@ -72,7 +72,20 @@ select { max-width: 170px; }
 /* ---------- main grid ---------- */
 .layout { flex: 1; min-height: 0; display: grid;
   grid-template-columns: var(--w-data, 360px) 12px var(--w-stage, 460px) 12px minmax(0, 1fr); grid-template-areas: "data s1 stage s2 mid"; }
-.layout > aside { grid-area: data; }
+.layout > .leftcol { grid-area: data; display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+.leftcol > aside { flex: 1; }
+/* performance: a compact readout under Data */
+.perf { flex: none; }
+.perf .wbar { min-height: 32px; padding: 4px 10px; }
+.pressure { font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-radius: 4px; color: var(--muted); background: var(--raise); }
+.pressure.nominal { color: var(--ok); } .pressure.fair { color: var(--fire); } .pressure.serious, .pressure.critical { color: var(--err); }
+.pstats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 7px 10px 2px; }
+.pstat { display: grid; gap: 1px; min-width: 0; }
+.pstat b { font: 600 14px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pstat span { font: 600 9px var(--sans); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pstat b.ok { color: var(--ok); } .pstat b.warn { color: var(--fire); } .pstat b.bad { color: var(--err); }
+.pgraph { display: block; width: calc(100% - 20px); height: 30px; margin: 3px 10px 4px; }
+.pfoot { display: flex; flex-wrap: wrap; gap: 2px 10px; padding: 0 10px 7px; font: 10.5px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .layout > .stage { grid-area: stage; }
 .mid { grid-area: mid; display: grid; grid-template-rows: auto minmax(100px, var(--h-cards, 1.2fr)) 12px minmax(100px, 1fr); min-height: 0; min-width: 0; }
 .mid > .texts { grid-row: 1; margin-bottom: 12px; max-height: 34vh; }
@@ -387,6 +400,7 @@ body.resizing canvas { pointer-events: none; }
 </header>
 
 <main class="layout" id="layout">
+  <div class="leftcol">
   <aside class="panel" aria-label="Data">
     <div class="vmhead">
       <div class="vmtitle"><h2>Data</h2><span class="vmn" id="vmName">no view model</span><div class="spacer"></div><button class="tog" id="tgQa2" aria-pressed="true" title="Show qa_* triggers">qa_*</button></div>
@@ -397,6 +411,18 @@ body.resizing canvas { pointer-events: none; }
     <div class="treebar" id="treeBar" hidden><span class="count" id="valCount"></span><button class="linkbtn" id="btnExpand">Expand all</button><button class="linkbtn" id="btnCollapse">Collapse all</button></div>
     <div class="vscroll" id="vScroll"><div class="tree" id="tree"></div></div>
   </aside>
+  <section class="panel perf" id="perfPanel" aria-label="Performance">
+    <div class="wbar"><h2>Performance</h2><span class="pressure" id="pPressure" hidden title="Chrome's Compute Pressure reading for the whole machine"></span><div class="spacer"></div><button class="tog" id="pReset" title="Clear worst time and dropped frames">Reset</button></div>
+    <div class="pstats">
+      <div class="pstat" title="Average time the runtime spends advancing and drawing the main artboard per frame (last second). Green: under a quarter of the frame budget, which a ~4× slower phone can still afford."><b id="pAvg">–</b><span>Rive / frame</span></div>
+      <div class="pstat" title="Slowest single frame of the runtime in the last few seconds"><b id="pMax">–</b><span>worst</span></div>
+      <div class="pstat" title="Frames the browser actually showed per second"><b id="pFps">–</b><span>fps</span></div>
+      <div class="pstat" title="Frames that took over 1.5× the display's frame time since the last reset"><b id="pDrop">0</b><span>dropped</span></div>
+    </div>
+    <canvas class="pgraph" id="pGraph" aria-label="Rive time per frame, last few seconds"></canvas>
+    <div class="pfoot" id="pFoot">Load a file to measure.</div>
+  </section>
+  </div>
   <div class="split" id="splitData" style="grid-area: s1" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the data panel" title="Drag to resize · double-click to reset"></div>
 
   <div class="stage" id="stage">
@@ -547,7 +573,7 @@ const S = {
   hostPending: new Map(), collapsed: new Set(), logN: 0, logEntries: [], shots: [],
   thumbFile: null, thumbNative: null, abByVm: null, cards: [], cardOf: new Map(),
 };
-(function tick() { S.frame++; window.__realRAF(tick); })();
+(function tick(t) { S.frame++; if (t !== undefined) perfTick(t); window.__realRAF(tick); })();
 
 const vnow = () => CLK.now();
 // Render at 2x or more: screenshots and recordings are only as sharp as the stage canvas.
@@ -639,6 +665,86 @@ function parseRivBinds(buf) {
   return { major, vms, written, demo, bindList: binds, binds: binds.length, toSource: resolved, skipped, complete: unknownKey === null, unknownKey };
 }
 
+/* ======================= performance ======================= */
+// Read-only timing. The runtime's draw (advance + render of one frame) is wrapped with two clock reads; the main
+// player and the card thumbnails are counted apart, and the inspector's own trigger handling inside the draw is subtracted.
+const P = { ms: new Float32Array(240), i: 0, n: 0, worst: 0, cb: 0, cardAcc: 0, cardMs: 0, iv: new Float32Array(120), ii: 0, ivn: 0, lastT: 0, expect: 0, dropped: 0, mod: null, pressure: null };
+(function () {
+  const orig = RT.Rive.prototype.draw;
+  RT.Rive.prototype.draw = function (time, onSecond) {
+    const t0 = performance.now();
+    if (this !== S.r) { const r = orig.call(this, time, onSecond); P.cardAcc += performance.now() - t0; return r; }
+    P.cb = 0;
+    const r = orig.call(this, time, onSecond);
+    const dt = Math.max(0, performance.now() - t0 - P.cb);
+    P.ms[P.i] = dt; P.i = (P.i + 1) % P.ms.length; P.n = Math.min(P.n + 1, P.ms.length);
+    if (dt > P.worst) P.worst = dt;
+    return r;
+  };
+  try { RT.RuntimeLoader.awaitInstance().then((m) => { P.mod = m; }, () => {}); } catch (e) {}
+  try {
+    if ('PressureObserver' in window) {
+      const po = new PressureObserver((recs) => { if (recs.length) P.pressure = recs[recs.length - 1].state; });
+      Promise.resolve(po.observe('cpu', { sampleInterval: 1000 })).catch(() => {});
+    }
+  } catch (e) {}
+})();
+function perfReset() { P.ms.fill(0); P.i = 0; P.n = 0; P.worst = 0; P.dropped = 0; P.ivn = 0; P.ii = 0; P.lastT = 0; }
+function perfTick(t) {
+  if (document.hidden) { P.lastT = 0; return; }
+  if (P.lastT) {
+    const d = t - P.lastT;
+    P.iv[P.ii] = d; P.ii = (P.ii + 1) % P.iv.length; P.ivn = Math.min(P.ivn + 1, P.iv.length);
+    if (P.expect && S.r && S.playing && d > P.expect * 1.5) P.dropped++;
+  }
+  P.lastT = t;
+  P.cardMs = P.cardMs * 0.9 + P.cardAcc * 0.1; P.cardAcc = 0;
+}
+function perfUpdate() {
+  const n = P.n; const last = (k) => { const out = []; for (let j = 1; j <= Math.min(k, n); j++) out.push(P.ms[(P.i - j + P.ms.length) % P.ms.length]); return out; };
+  if (P.ivn > 10) { const iv = Array.from(P.iv.slice(0, P.ivn)).sort((a, b) => a - b); P.expect = iv[iv.length >> 1]; }
+  const budget = P.expect || 1000 / 60;
+  const grade = (v) => v < budget / 4 ? 'ok' : v < budget / 2 ? 'warn' : 'bad';
+  const set = (id, txt, cls) => { const e = $(id); e.textContent = txt; e.className = cls || ''; };
+  if (!S.r || !n) { set('pAvg', '–'); set('pMax', '–'); set('pFps', '–'); }
+  else {
+    const sec = last(Math.round(1000 / budget)); const avg = sec.reduce((a, b) => a + b, 0) / sec.length;
+    let mx = 0; for (let j = 0; j < n; j++) mx = Math.max(mx, P.ms[j]);
+    set('pAvg', avg.toFixed(2) + ' ms', grade(avg)); set('pMax', mx.toFixed(1) + ' ms', grade(mx));
+    let ivs = 0, c = 0; for (let j = 1; j <= Math.min(60, P.ivn); j++) { ivs += P.iv[(P.ii - j + P.iv.length) % P.iv.length]; c++; }
+    set('pFps', c ? (S.playing ? Math.round(1000 / (ivs / c)) : 'paused') : '–');
+  }
+  set('pDrop', String(P.dropped), P.dropped ? 'warn' : '');
+  const pr = $('pPressure'); if (P.pressure) { pr.hidden = false; pr.textContent = 'CPU ' + P.pressure; pr.className = 'pressure ' + P.pressure; }
+  const foot = [];
+  if (S.cards.length) foot.push('cards ' + P.cardMs.toFixed(2) + ' ms');
+  if (performance.memory) foot.push('JS heap ' + Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB');
+  if (P.mod && P.mod.HEAPU8) foot.push('runtime memory ' + Math.round(P.mod.HEAPU8.byteLength / 1048576) + ' MB');
+  if (P.expect) foot.push(Math.round(1000 / P.expect) + ' Hz display');
+  if (document.hidden) foot.unshift('paused while the tab is in the background');
+  $('pFoot').textContent = S.r ? foot.join(' · ') : 'Load a file to measure.';
+  drawPerfGraph(budget, grade);
+}
+function drawPerfGraph(budget, grade) {
+  const cv = $('pGraph'); const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr); if (!w || !h) return;
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const g = cv.getContext('2d'); g.clearRect(0, 0, w, h);
+  const cs = getComputedStyle(document.documentElement); const col = (v) => cs.getPropertyValue(v).trim();
+  const N = P.ms.length; let mx = budget / 3; for (let j = 0; j < P.n; j++) mx = Math.max(mx, P.ms[j]); mx *= 1.1;
+  const bw = w / N;
+  for (let j = 0; j < Math.min(N, P.n); j++) {
+    const v = P.ms[(P.i - P.n + j + N) % N]; const bh = Math.max(1, (v / mx) * h);
+    const gr = grade(v); g.fillStyle = col(gr === 'ok' ? '--accent' : gr === 'warn' ? '--fire' : '--err');
+    g.fillRect(j * bw, h - bh, Math.max(1, bw - dpr * 0.5), bh);
+  }
+  // dashed line at a quarter of the frame budget: what a ~4x slower phone could still afford
+  const y = h - (budget / 4 / mx) * h;
+  if (y > 0) { g.strokeStyle = col('--muted'); g.setLineDash([3 * dpr, 3 * dpr]); g.lineWidth = dpr; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); g.setLineDash([]); }
+}
+setInterval(perfUpdate, 200);
+$('pReset').onclick = () => perfReset();
+
 /* ======================= loading ======================= */
 const stage = $('stage');
 async function loadFile(file) {
@@ -686,7 +792,7 @@ function boot() {
   if (S.artboard) opts.artboard = S.artboard;
   if (S.sm) opts.stateMachines = S.sm;
   try { S.r = new RT.Rive(opts); } catch (e) { showMsg('The runtime threw while loading: ' + (e && e.message || e)); flushReady(false); return p; }
-  S.r.on(RT.EventType.RiveEvent, (ev) => { if (gen === S.gen) logEvent(ev && ev.data); });
+  S.r.on(RT.EventType.RiveEvent, (ev) => { const t0 = performance.now(); if (gen === S.gen) logEvent(ev && ev.data); P.cb += performance.now() - t0; });
   return p;
 }
 function flushReady(v) { const w = S.ready; S.ready = []; w.forEach((f) => f(v)); }
@@ -701,7 +807,7 @@ function onLoaded() {
   if (!S.artboard) S.artboard = firstArtboard();
   try { r.resizeDrawingSurfaceToCanvas(DPR()); } catch (e) {}
   S.playing = true; $('btnPlay').textContent = 'Pause';
-  S.t0 = vnow(); S.f0 = S.frame;
+  S.t0 = vnow(); S.f0 = S.frame; perfReset();
   $('liveDot').classList.add('live');
   fillSelectors(); bindTree();
   $('dims').hidden = false;
@@ -871,6 +977,10 @@ function fireTrigger(t) {
 }
 
 function onTrigger(t) {
+  const t0 = performance.now();
+  try { onTriggerInner(t); } finally { P.cb += performance.now() - t0; }
+}
+function onTriggerInner(t) {
   t.count++;
   let src = 'file';
   const hp = S.hostPending.get(t.path);

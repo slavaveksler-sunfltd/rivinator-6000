@@ -27,6 +27,7 @@ Files never leave your browser: nothing is uploaded anywhere.
   A card flashes when a trigger inside it fires, and the card with the latest trigger moves to the top.
 - **Trigger activations:** every view model trigger the file fires, with time and frame, subscribed with `.on()` the way the game integration listens.
 - **qa_ screenshots:** each `qa_` trigger is screenshotted the frame it fires. Click its row in the log to see it, step through all of them, and save any as PNG.
+- **Performance:** a compact readout under Data. It shows the runtime's time per frame for the main artboard (average and worst), fps, dropped frames, card thumbnails' cost, and memory, with a short graph. The inspector only reads the clock around the runtime's draw; nothing in the file or runtime changes. Compare files or moments on the same machine: a phone is several times slower than a desktop, so green means under a quarter of the frame budget.
 - **Recording:** record the artboard (or the whole tab) to MP4, with the sound the file plays.
 
 Panels are resizable: drag the bars between them; double-click a bar to reset it.
