@@ -10,7 +10,7 @@ Files never leave your browser: nothing is uploaded anywhere.
 
 - **Data:** the artboard's view model as one tree.
   - The main view model's triggers fired from code (no data bind in the file writes them) sit on top as large green buttons, `activate` first. Nested view models keep theirs in the tree and on their cards.
-  - The main view model (its name contains "main") comes next, in larger rows: its values set from code are cards in two columns, tinted with their type color, ordered number, enum, boolean, string. Then every nested view model.
+  - The main view model (its name contains "main") comes next, in larger rows: its triggers and values set from code are cards in two columns, tinted with their type color, ordered trigger, number, enum, boolean, string (click a trigger card to fire it, a boolean card to toggle it). Then every nested view model.
   - Inside each view model, values set from code come first, marked with a green **runtime** tag; values Rive sets follow, then events.
   - Every value is editable and every trigger can be fired.
 - **Colors by type:** view model brown, number blue, string red, boolean yellow, enum purple, trigger green (fired from code), event cyan (fired by Rive, through actions or property groups bound object to source), qa_ triggers orange.

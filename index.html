@@ -19,7 +19,7 @@
   --fire: #d9580b; --fire-soft: #ffe2cc; --qa: #c25a00; --qa-soft: #ffe4cc;
   --ok: #18794e; --err: #c0262d; --err-soft: #fde4e4; --rec: #d92d20;
   /* type colors: view model, number, string, boolean, enum, trigger (fired from code), event (fired by Rive) */
-  --t-vm: #9a5a14; --t-num: #3d33f0; --t-str: #d63a2b; --t-bool: #7c8800; --t-enum: #a822cf; --t-color: #9c3d78; --t-trig: #2c9412; --t-trig-fg: #ffffff; --t-event: #0a8ba0;
+  --t-vm: #9a5a14; --t-num: #3d33f0; --t-str: #d63a2b; --t-bool: #9a7300; --t-enum: #a822cf; --t-color: #9c3d78; --t-trig: #2c9412; --t-trig-fg: #ffffff; --t-event: #0a8ba0;
   --check-a: #ffffff; --check-b: #e6e9ef; --scrim: rgba(16, 20, 28, .55);
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -28,14 +28,14 @@
   --bg: #0f1218; --panel: #161a22; --raise: #1d222c; --line: #2a303c; --fg: #e4e8f0; --muted: #8b95a8;
   --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #ff9a3c; --qa-soft: #3d2410;
   --ok: #4cc38a; --err: #ff6b6b; --err-soft: #3d1c1e; --rec: #ff5b4f;
-  --t-vm: #c07428; --t-num: #6a61ff; --t-str: #f0533f; --t-bool: #e6ff52; --t-enum: #cd3cf3; --t-color: #e58cc1; --t-trig: #6ff546; --t-trig-fg: #0b1a05; --t-event: #70e8f8;
+  --t-vm: #c07428; --t-num: #6a61ff; --t-str: #f0533f; --t-bool: #ffd84a; --t-enum: #cd3cf3; --t-color: #e58cc1; --t-trig: #6ff546; --t-trig-fg: #0b1a05; --t-event: #70e8f8;
   --check-a: #1a1e26; --check-b: #222732; --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --bg: #0f1218; --panel: #161a22; --raise: #1d222c; --line: #2a303c; --fg: #e4e8f0; --muted: #8b95a8;
   --accent: #7d93ff; --accent-fg: #0f1218; --accent-soft: #232b4a; --fire: #ff8c42; --fire-soft: #4a2a14; --qa: #ff9a3c; --qa-soft: #3d2410;
   --ok: #4cc38a; --err: #ff6b6b; --err-soft: #3d1c1e; --rec: #ff5b4f;
-  --t-vm: #c07428; --t-num: #6a61ff; --t-str: #f0533f; --t-bool: #e6ff52; --t-enum: #cd3cf3; --t-color: #e58cc1; --t-trig: #6ff546; --t-trig-fg: #0b1a05; --t-event: #70e8f8;
+  --t-vm: #c07428; --t-num: #6a61ff; --t-str: #f0533f; --t-bool: #ffd84a; --t-enum: #cd3cf3; --t-color: #e58cc1; --t-trig: #6ff546; --t-trig-fg: #0b1a05; --t-event: #70e8f8;
   --check-a: #1a1e26; --check-b: #222732; --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
 }
 html, body { height: 100%; }
@@ -107,6 +107,13 @@ select { max-width: 170px; }
 .tr.rtcard.t-boolean { --tc: var(--t-bool); }
 .tr.rtcard.t-string { --tc: var(--t-str); }
 .tr.rtcard.t-color { --tc: var(--t-color); }
+.tr.rtcard.t-trigger { --tc: var(--t-trig); }
+.tr.rtcard.tcard { text-align: left; font: inherit; color: inherit; grid-template-columns: minmax(0, 1fr) auto; cursor: pointer; }
+.tr.rtcard.tcard .ic { width: 0; height: 0; border-left: 8px solid var(--t-trig); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+.tr.rtcard.tcard:hover { border-color: var(--t-trig); }
+.tr.rtcard.tcard.fired { animation: actFire 700ms ease-out; }
+.tr.rtcard.toggle { cursor: pointer; }
+.tr.rtcard.toggle:hover { border-color: var(--tc); }
 /* drag handles between panels */
 .split { position: relative; touch-action: none; cursor: col-resize; }
 .split.h { cursor: row-resize; }
@@ -843,7 +850,7 @@ function renderTriggerButtons() {
   const main = S.mainNode || S.tree;
   // activate always comes first, whatever its origin or view model
   const lead = S.triggers.filter((t) => t.name === 'activate').sort((a, b) => a.depth - b.depth)[0];
-  let list = S.triggers.filter((t) => t !== lead && t.parent === main && S.binds && t.origin === 'runtime');
+  let list = [];
   if (lead) list = [lead, ...list];
   for (const t of list) {
     const b = el('button', 'tbtn' + (t === lead ? ' lead' : ''));
@@ -967,7 +974,8 @@ const isNum = (c) => c.type === 'number' || c.type === 'integer';
 function orderedKids(n) {
   // in the main view model, values set from code go number, enum, boolean, string, then the rest
   const TYPE = { number: 0, integer: 0, enumType: 1, boolean: 2, string: 3 };
-  const rank = (c) => c.kind === 'value' ? (c.origin === 'runtime' ? (n === S.mainNode ? ((c.type in TYPE ? TYPE[c.type] : 4) / 10) : 1) : 2) : c.kind === 'trigger' ? 3 : 4;
+  const rank = (c) => c.kind === 'value' ? (c.origin === 'runtime' ? (n === S.mainNode ? ((c.type in TYPE ? TYPE[c.type] : 4) / 10) : 1) : 2)
+    : c.kind === 'trigger' ? (n === S.mainNode && c.origin === 'runtime' ? -1 : 3) : 4;
   return n.children.map((c, i) => [c, i]).sort((a, b) => (rank(a[0]) - rank(b[0])) || ((b[0] === S.mainNode) - (a[0] === S.mainNode)) || (a[1] - b[1])).map((x) => x[0]);
 }
 function renderTree() {
@@ -995,10 +1003,10 @@ function renderTree() {
   const addKids = (n, only) => {
     let kids = orderedKids(n); if (only) kids = kids.filter(only);
     if (n === main) {
-      const rtv = kids.filter((c) => c.kind === 'value' && c.origin === 'runtime');
+      const rtv = kids.filter((c) => (c.kind === 'value' || (c.kind === 'trigger' && !c.btn)) && c.origin === 'runtime');
       if (rtv.length) {
         const lab = el('div', 'rtlabel'); lab.append(el('span', 'rtag', 'runtime'), el('span', null, 'set from code'));
-        const grid = el('div', 'rtgrid'); rtv.forEach((v) => grid.appendChild(valueRow(v)));
+        const grid = el('div', 'rtgrid'); rtv.forEach((v) => grid.appendChild(v.kind === 'trigger' ? triggerCard(v) : valueRow(v)));
         box.append(lab, grid);
       }
       kids = kids.filter((c) => !rtv.includes(c));
@@ -1034,6 +1042,17 @@ function countKids(n) {
   return { v, t };
 }
 
+// a runtime trigger of the main view model as a card in the grid: the whole card fires it
+function triggerCard(t) {
+  const card = el('button', 'tr big rtcard t-trigger tcard'); card.dataset.path = t.path;
+  card.title = 'Fire ' + t.path + ' (a trigger the game fires from code)';
+  const nm = el('div', 'nm'); nm.append(el('span', 'ty trigger', 'trig'), el('span', 'k', t.name));
+  const val = el('div', 'val'); val.append(el('span', 'ic'), el('span', 'tc', String(t.count)));
+  card.append(nm, val);
+  card.onclick = () => fireTrigger(t);
+  t.row = card;
+  return card;
+}
 function triggerRow(t) {
   const rt = t.origin === 'runtime' || t.origin === 'unknown';
   const row = el('div', 'tr trig' + (t.qa ? ' qa' : '') + (rt ? ' rt' : '') + (t.parent === S.mainNode ? ' big' : '')); row.style.setProperty('--d', t.depth); row.dataset.path = t.path;
@@ -1074,8 +1093,9 @@ function valueRow(v) {
   } else if (v.type === 'boolean') {
     ctl = el('button', 'sw'); ctl.setAttribute('role', 'switch'); ctl.id = id;
     const lbl = el('span', 'bv');
-    ctl.onclick = () => { mark(); a.value = !a.value; };
+    ctl.onclick = (e) => { if (e) e.stopPropagation(); mark(); a.value = !a.value; };
     val.appendChild(lbl); v.bv = lbl;
+    if (v.parent === S.mainNode && v.origin === 'runtime') { row.classList.add('toggle'); k.onclick = null; k.title = v.path; row.onclick = () => ctl.onclick(); }
   } else if (v.type === 'enumType') {
     ctl = el('select'); ctl.id = id;
     let vals = []; try { vals = a.values || []; } catch (e) {}
