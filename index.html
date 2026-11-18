@@ -629,6 +629,23 @@ function parseRivBinds(buf) {
   const vms = []; const binds = []; let unknownKey = null; let lastType = 0;
   // the state machine layer the stream is in: binds that follow a layer belong to it until a listener, state machine or artboard starts
   let layer = null;
+  // the file's name table (a ManifestAsset followed by its contents): name-based binds point into it
+  let manifestNext = false; const mNames = new Map(), mPaths = new Map();
+  const readManifest = (b) => {
+    let q = 0; const v = () => { let r = 0, s = 0, c; do { c = b[q++]; r += (c & 127) * 2 ** s; s += 7; } while (c & 128); return r; };
+    while (q < b.length) {
+      const sec = v(), size = v(), start = q;
+      if (sec === 0 || sec === 1) {
+        const n = v();
+        for (let i = 0; i < n; i++) {
+          const id = v();
+          if (sec === 0) { const len = v(); mNames.set(id, new TextDecoder().decode(b.subarray(q, q + len))); q += len; }
+          else { const len = v(); const path = []; for (let j = 0; j < len; j++) path.push(v()); mPaths.set(id, path); }
+        }
+      }
+      q = start + size;
+    }
+  };
   while (p < u8.length) {
     const type = vu(); const props = {};
     for (;;) {
@@ -644,12 +661,21 @@ function parseRivBinds(buf) {
     if (!(588 in props)) lastType = type;
     if (type === 57) layer = props[138] || '';
     else if (type === 53 || type === 1 || type === 114 || type === 654) layer = null;
+    if (type === 642) manifestNext = true;
+    else if (type === 106 && manifestNext) { manifestNext = false; try { if (props[212]) readManifest(props[212]); } catch (e) {} }
     if (type === VM) vms.push({ name: props[557] || '', props: [] });
     else if (PROP_TYPES[type] && vms.length) vms[vms.length - 1].props.push({ name: props[557], type: PROP_TYPES[type] || 'other:' + type, ref: props[565], written: false });
     if (588 in props) {
       const ids = []; const b = props[588]; let q = 0;
       while (q < b.length) { let r = 0, s = 0, c; do { c = b[q++]; r += (c & 127) * 2 ** s; s += 7; } while (c & 128); ids.push(r); }
       binds.push({ type, flags: props[587] || 0, target: props[586], ids, objType: lastType, layer });
+    }
+    // a state or transition "fire trigger" action (StateMachineFireTrigger) fires its view model trigger directly,
+    // without a data bind; its viewModelPathIds use the same path format, so it counts as a write
+    if (type === 614 && 871 in props) {
+      const ids = []; const b = props[871]; let q = 0;
+      while (q < b.length) { let r = 0, s = 0, c; do { c = b[q++]; r += (c & 127) * 2 ** s; s += 7; } while (c & 128); ids.push(r); }
+      binds.push({ type, flags: 1, target: 0, ids, objType: lastType, layer, fireAction: true });
     }
   }
   // name path of each property a bind writes, from the view model it starts at: "MainVM:final_prize/PrizeType"
@@ -659,7 +685,13 @@ function parseRivBinds(buf) {
   let resolved = 0, skipped = 0;
   for (const b of binds) {
     if (!(b.flags & 3)) continue;           // toTarget only: Rive reads the property, does not write it
-    if (b.flags & 16) { skipped++; continue; } // name-based path: resolved by names at runtime
+    if (b.flags & 16) {
+      // name-based path: ids[0] names a path in the name table, resolved by property names from the bound instance.
+      // Recorded as "*:" + names, matched against the end of a property's path.
+      const path = mPaths.get(b.ids[0]); const names = path && path.map((id) => mNames.get(id));
+      if (names && names.length && names.every((x) => x != null)) { (isDemo(b.layer) ? demo : written).add('*:' + names.join('/')); resolved++; } else skipped++;
+      continue;
+    }
     let vm = vms[b.ids[0]]; if (!vm || b.ids.length < 2) { skipped++; continue; }
     let ok = true;
     for (let i = 1; i < b.ids.length - 1; i++) { const pr = vm.props[b.ids[i]]; if (!pr || pr.ref === undefined) { ok = false; break; } vm = vms[pr.ref]; if (!vm) { ok = false; break; } }
@@ -931,6 +963,7 @@ function isWritten(n, set) {
   let rel = n.name, a = n.parent;
   while (a) {
     if (a.vmName && set.has(a.vmName + ':' + rel)) return true;
+    if (set.has('*:' + rel)) return true;
     if (!a.parent) break;
     rel = a.name + '/' + rel; a = a.parent;
   }
