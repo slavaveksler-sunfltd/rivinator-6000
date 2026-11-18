@@ -10,7 +10,7 @@ Files never leave your browser: nothing is uploaded anywhere.
 
 - **Data:** the artboard's view model as one tree.
   - The main view model's triggers fired from code (no data bind in the file writes them) sit on top as large green buttons, `activate` first. Nested view models keep theirs in the tree and on their cards.
-  - The main view model (its name contains "main") comes next, in larger rows, then every nested view model.
+  - The main view model (its name contains "main") comes next, in larger rows: its values set from code are green cards, ordered number, enum, boolean, string. Then every nested view model.
   - Inside each view model, values set from code come first, marked with a green **runtime** tag; values Rive sets follow, then events.
   - Every value is editable and every trigger can be fired.
 - **Colors by type:** view model brown, number blue, string red, boolean yellow, enum purple, trigger green (fired from code), event cyan (fired by Rive, through actions or property groups bound object to source), qa_ triggers orange.
@@ -18,6 +18,7 @@ Files never leave your browser: nothing is uploaded anywhere.
   - Writes from a state machine layer named **DEMO** don't count: a trigger or value only a DEMO layer writes stays a runtime one (its fires show as `demo` in the log). Anything also written from another layer or a listener is still set by Rive.
   - `activate` always leads the buttons on top, wherever it is and whatever sets it.
 - **Player:** the artboard running in 2.37.6, sized for portrait (mobile) artboards. Pick the artboard, state machine, view model instance and fit, and play at 0.25× to 4× speed.
+- **Texts:** view models whose name has "bind" or "text" (localization strings) get a compact window above Nested objects: `Language` as a card on the left, every other string as a short editable line.
 - **Nested objects:** a card for every nested view model that is bound to an artboard (a component such as a cup or a prize). Each card shows:
   - that artboard as a live thumbnail
   - its triggers, one click to fire
