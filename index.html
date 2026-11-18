@@ -95,9 +95,18 @@ select { max-width: 170px; }
 .tr.vm.stub { font-weight: 400; color: var(--muted); }
 .tr.vm.stub .to { font: 11px var(--sans); color: var(--accent); border: 0; background: none; padding: 0; }
 /* main view model values set from code: green cards */
-.tr.big.rtcard { margin: 6px 12px; padding: 8px 10px 9px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--t-trig) 32%, transparent);
-  background-color: color-mix(in srgb, var(--t-trig) 8%, var(--panel)); background-image: none; }
-.tr.big.rtcard:hover { background-color: color-mix(in srgb, var(--t-trig) 12%, var(--panel)); }
+/* main view model values set from code: a 2-column grid of cards, each tinted with its type's color */
+.rtlabel { display: flex; align-items: center; gap: 6px; padding: 2px 16px 0; font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.rtgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; padding: 6px 16px 10px; }
+.rtgrid .rtag { display: none; }
+.tr.big.rtcard { --tc: var(--t-trig); margin: 0; padding: 8px 10px 9px; border-radius: 9px; min-width: 0; background-image: none;
+  border: 1px solid color-mix(in srgb, var(--tc) 40%, transparent); background-color: color-mix(in srgb, var(--tc) 11%, var(--panel)); }
+.tr.big.rtcard:hover { background-color: color-mix(in srgb, var(--tc) 16%, var(--panel)); }
+.tr.rtcard.t-number, .tr.rtcard.t-integer { --tc: var(--t-num); }
+.tr.rtcard.t-enumType { --tc: var(--t-enum); }
+.tr.rtcard.t-boolean { --tc: var(--t-bool); }
+.tr.rtcard.t-string { --tc: var(--t-str); }
+.tr.rtcard.t-color { --tc: var(--t-color); }
 /* drag handles between panels */
 .split { position: relative; touch-action: none; cursor: col-resize; }
 .split.h { cursor: row-resize; }
@@ -980,13 +989,27 @@ function renderTree() {
     car.onclick = () => { S.collapsed.has(n.path) ? S.collapsed.delete(n.path) : S.collapsed.add(n.path); renderTree(); applyFilter(); };
     row.ondblclick = (e) => { if (e.target !== k) car.onclick(); };
     box.appendChild(row); S.vmRows.set(n.path, row);
-    if (exp) orderedKids(n).forEach(add);
+    if (exp) addKids(n);
+  };
+  // the main view model's values set from code go in a 2-column grid, in the order orderedKids gives (number, enum, boolean, string)
+  const addKids = (n, only) => {
+    let kids = orderedKids(n); if (only) kids = kids.filter(only);
+    if (n === main) {
+      const rtv = kids.filter((c) => c.kind === 'value' && c.origin === 'runtime');
+      if (rtv.length) {
+        const lab = el('div', 'rtlabel'); lab.append(el('span', 'rtag', 'runtime'), el('span', null, 'set from code'));
+        const grid = el('div', 'rtgrid'); rtv.forEach((v) => grid.appendChild(valueRow(v)));
+        box.append(lab, grid);
+      }
+      kids = kids.filter((c) => !rtv.includes(c));
+    }
+    kids.forEach(add);
   };
   if (main === S.tree) {
     const c = countKids(S.tree);
     const h = el('div', 'sect'); h.append(el('span', null, S.tree.vmName || 'Main'), el('span', 'count', 'main view model'));
     box.appendChild(h);
-    orderedKids(S.tree).filter((c) => c.kind !== 'vm').forEach(add);
+    addKids(S.tree, (c) => c.kind !== 'vm');
     box.appendChild(el('div', 'maingap'));
     orderedKids(S.tree).filter((c) => c.kind === 'vm').forEach(add);
   } else {
@@ -1032,7 +1055,7 @@ function triggerRow(t) {
 }
 
 function valueRow(v) {
-  const row = el('div', 'tr' + (v.parent === S.mainNode ? ' big' : '') + (v.parent === S.mainNode && v.origin === 'runtime' ? ' rtcard' : '')); row.style.setProperty('--d', v.depth); row.dataset.path = v.path;
+  const row = el('div', 'tr' + (v.parent === S.mainNode ? ' big' : '') + (v.parent === S.mainNode && v.origin === 'runtime' ? ' rtcard t-' + v.type : '')); row.style.setProperty('--d', v.depth); row.dataset.path = v.path;
   const nm = el('div', 'nm');
   const k = el('span', 'k', v.name); k.title = v.path + ' (click to copy the path)'; k.onclick = () => copyText(v.path, v.path);
   nm.append(el('span', 'ty ' + (KNOWN.includes(v.type) ? v.type : 'other'), typeLabel(v.type)), k);
