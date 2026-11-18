@@ -74,7 +74,30 @@ select { max-width: 170px; }
   grid-template-columns: var(--w-data, 360px) 12px var(--w-stage, 460px) 12px minmax(0, 1fr); grid-template-areas: "data s1 stage s2 mid"; }
 .layout > aside { grid-area: data; }
 .layout > .stage { grid-area: stage; }
-.mid { grid-area: mid; display: grid; grid-template-rows: minmax(100px, var(--h-cards, 1.2fr)) 12px minmax(100px, 1fr); min-height: 0; min-width: 0; }
+.mid { grid-area: mid; display: grid; grid-template-rows: auto minmax(100px, var(--h-cards, 1.2fr)) 12px minmax(100px, 1fr); min-height: 0; min-width: 0; }
+.mid > .texts { grid-row: 1; margin-bottom: 12px; max-height: 34vh; }
+.mid > #nestedPanel { grid-row: 2; } .mid > #splitMid { grid-row: 3; } .mid > #logPanel { grid-row: 4; }
+/* texts window: view models whose name has "bind" or "text" */
+.tbody { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; display: grid; gap: 12px; }
+.txg { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.txg-h { font: 600 11px var(--mono); color: var(--t-vm); margin-bottom: -6px; }
+.langcard { flex: none; width: 168px; display: grid; gap: 6px; padding: 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--raise); }
+.langcard.rt { border-color: color-mix(in srgb, var(--t-trig) 35%, transparent); background: color-mix(in srgb, var(--t-trig) 8%, var(--panel)); }
+.langcard .lh { display: flex; align-items: center; gap: 6px; font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.langcard input, .langcard select { width: 100%; height: 32px; font: 600 15px var(--mono); padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.tlines { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 14px; align-content: start; }
+.tline { display: grid; grid-template-columns: minmax(64px, 34%) minmax(0, 1fr); gap: 8px; align-items: center; min-height: 26px; }
+.tline .tl { display: flex; align-items: center; gap: 5px; min-width: 0; font: 11px var(--mono); color: var(--muted); }
+.tline .tl span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tline input, .tline select { width: 100%; min-width: 0; height: 24px; font: 12px var(--mono); padding: 0 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
+.tline .sw { justify-self: start; }
+.texts.located { animation: located 1.4s ease-out; }
+.tr.vm.stub { font-weight: 400; color: var(--muted); }
+.tr.vm.stub .to { font: 11px var(--sans); color: var(--accent); border: 0; background: none; padding: 0; }
+/* main view model values set from code: green cards */
+.tr.big.rtcard { margin: 6px 12px; padding: 8px 10px 9px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--t-trig) 32%, transparent);
+  background-color: color-mix(in srgb, var(--t-trig) 8%, var(--panel)); background-image: none; }
+.tr.big.rtcard:hover { background-color: color-mix(in srgb, var(--t-trig) 12%, var(--panel)); }
 /* drag handles between panels */
 .split { position: relative; touch-action: none; cursor: col-resize; }
 .split.h { cursor: row-resize; }
@@ -227,7 +250,8 @@ body.resizing canvas { pointer-events: none; }
 /* main view model values: name on one line, a full-width editor under it */
 .tr.big:not(.trig):not(.vm) { grid-template-columns: minmax(0, 1fr); gap: 5px; padding-top: 7px; padding-bottom: 7px; }
 .tr.big .val { min-width: 0; justify-content: flex-start; }
-.tr.big .val > input[type=text], .tr.big .val > input[type=number], .tr.big .val > select { width: 100%; min-width: 0; }
+.tr.big .val > input[type=text], .tr.big .val > input[type=number], .tr.big .val > select { width: 100%; min-width: 0; max-width: none; }
+.tline select, .langcard select { max-width: none; }
 .tr.big.trig { grid-template-columns: minmax(0, 1fr) auto; }
 .tr.big .firebtn { height: 26px; font-size: 12px; }
 .maingap { height: 10px; border-bottom: 1px solid var(--line); margin: 0 16px 8px; }
@@ -320,7 +344,7 @@ body.resizing canvas { pointer-events: none; }
   html, body { height: auto; }
   .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "stage" "mid" "data"; gap: 12px; }
   .layout > .stage { height: min(78vh, 720px); }
-  .mid { grid-template-rows: 460px 0 320px; gap: 6px; }
+  .mid { grid-template-rows: auto 460px 0 320px; gap: 6px; }
   .split { display: none; }
   aside.panel { max-height: 80vh; }
   .val input[type=text], .val select { width: 120px; }
@@ -385,7 +409,11 @@ body.resizing canvas { pointer-events: none; }
   <div class="split" id="splitStage" style="grid-area: s2" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the player" title="Drag to resize · double-click to reset"></div>
 
   <section class="mid" id="mid">
-      <section class="panel" aria-label="Nested objects">
+      <section class="panel texts" id="textsPanel" aria-label="Texts" hidden>
+        <div class="wbar"><h2>Texts</h2><span class="count" id="textsCount"></span></div>
+        <div class="tbody" id="textsBody"></div>
+      </section>
+      <section class="panel" id="nestedPanel" aria-label="Nested objects">
         <div class="wbar">
           <h2>Nested objects</h2><span class="count" id="nestCount"></span>
           <div class="spacer"></div>
@@ -394,7 +422,7 @@ body.resizing canvas { pointer-events: none; }
         <div class="cards" id="cards"><div class="hint" id="cardsEmpty" style="grid-column: 1 / -1">Each nested view model whose view model is bound to an artboard in the file (a component placed in this artboard, like a cup or a prize) gets a card here: that artboard as a live thumbnail, its triggers to fire, its values. A card flashes when a trigger inside it fires.</div></div>
       </section>
       <div class="split h" id="splitMid" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Resize nested objects and the trigger log" title="Drag to resize · double-click to reset"></div>
-      <section class="panel" aria-label="Trigger activations">
+      <section class="panel" id="logPanel" aria-label="Trigger activations">
         <div class="wbar">
           <span class="dot" id="liveDot"></span>
           <h2>Trigger activations</h2><span class="count" id="logCount">0</span>
@@ -743,6 +771,7 @@ function bindTree() {
   S.root = root || null;
   $('vmNone').hidden = !!root; $('treeBar').hidden = !root;
   $('tree').innerHTML = ''; $('tbtns').innerHTML = ''; $('tbtns').hidden = true;
+  S.textNodes = []; S.textCtls = []; $('textsBody').innerHTML = ''; $('textsPanel').hidden = true;
   if (!root) {
     $('vmName').textContent = 'no view model';
     $('vmNone').textContent = 'This artboard has no view model bound (no default view model, or auto-bind found nothing).';
@@ -759,7 +788,7 @@ function bindTree() {
     const cb = () => { if (gen === S.gen) onTrigger(tr); };
     try { tr.acc.on(cb); S.subs.push({ acc: tr.acc, cb }); } catch (e) {}
   }
-  renderTriggerButtons(); renderTree(); applyFilter();
+  renderTriggerButtons(); renderTree(); renderTexts(); applyFilter();
   buildCards(gen);
 }
 
@@ -784,6 +813,7 @@ function classify() {
     n.demo = !!S.binds && n.origin === 'runtime' && isWritten(n, S.binds.demo);
   }
   S.mainNode = isMainName(S.tree.vmName) ? S.tree : (S.vmNodes.find((n) => !n.isList && (isMainName(n.vmName) || isMainName(n.name))) || null);
+  S.textNodes = findTextNodes();
 }
 // Something the file classified as set-from-code turned out to be set by Rive (a script, an action the parser does not see): move it.
 function reclassify(n) {
@@ -792,7 +822,7 @@ function reclassify(n) {
   const run = () => {
     const a = document.activeElement;
     if (a && (a.closest('#tree') || a.closest('.cvals'))) { S.reclassT = setTimeout(run, 800); return; }
-    renderTriggerButtons(); renderTree(); applyFilter(); S.cards.forEach(fillCard);
+    renderTriggerButtons(); renderTree(); renderTexts(); applyFilter(); S.cards.forEach(fillCard);
   };
   S.reclassT = setTimeout(run, 300);
 }
@@ -926,7 +956,9 @@ const KNOWN = ['number', 'integer', 'string', 'boolean', 'enumType', 'color', 't
 // then events, then nested view models (file order within each group).
 const isNum = (c) => c.type === 'number' || c.type === 'integer';
 function orderedKids(n) {
-  const rank = (c) => c.kind === 'value' ? (c.origin === 'runtime' ? (n === S.mainNode && isNum(c) ? 0 : 1) : 2) : c.kind === 'trigger' ? 3 : 4;
+  // in the main view model, values set from code go number, enum, boolean, string, then the rest
+  const TYPE = { number: 0, integer: 0, enumType: 1, boolean: 2, string: 3 };
+  const rank = (c) => c.kind === 'value' ? (c.origin === 'runtime' ? (n === S.mainNode ? ((c.type in TYPE ? TYPE[c.type] : 4) / 10) : 1) : 2) : c.kind === 'trigger' ? 3 : 4;
   return n.children.map((c, i) => [c, i]).sort((a, b) => (rank(a[0]) - rank(b[0])) || ((b[0] === S.mainNode) - (a[0] === S.mainNode)) || (a[1] - b[1])).map((x) => x[0]);
 }
 function renderTree() {
@@ -935,6 +967,7 @@ function renderTree() {
   const add = (n) => {
     if (n.kind === 'trigger') { if (!n.btn) box.appendChild(triggerRow(n)); return; }
     if (n.kind === 'value') { box.appendChild(valueRow(n)); return; }
+    if (S.textNodes.includes(n)) { box.appendChild(textStubRow(n)); return; }
     const row = el('div', 'tr vm' + (n === main ? ' big' : '')); row.style.setProperty('--d', n.depth); row.dataset.path = n.path;
     const exp = !S.collapsed.has(n.path); row.setAttribute('aria-expanded', String(exp));
     const nm = el('div', 'nm');
@@ -963,6 +996,15 @@ function renderTree() {
   $('valCount').textContent = `${S.values.length} values · ${S.triggers.length} triggers`;
   if (!S.tree.children.length) box.appendChild(el('div', 'none', 'This view model has no properties.'));
 }
+function textStubRow(n) {
+  const row = el('div', 'tr vm stub'); row.style.setProperty('--d', n.depth); row.dataset.path = n.path;
+  const nm = el('div', 'nm');
+  nm.append(el('span', 'caret'), el('span', 'ty viewModel', 'vm'), el('span', 'k', n.name));
+  if (n.vmName && n.vmName !== n.name) nm.appendChild(el('span', 'vmt', n.vmName));
+  const go = el('button', 'to', 'in Texts ↗'); go.onclick = () => { const t = $('textsPanel'); t.scrollIntoView({ block: 'nearest' }); flash(t, 'located'); };
+  row.append(nm, go);
+  return row;
+}
 function countKids(n) {
   let v = 0, t = 0;
   for (const c of n.children) { if (c.kind === 'value') v++; else if (c.kind === 'trigger') t++; else { const s = countKids(c); v += s.v; t += s.t; } }
@@ -990,7 +1032,7 @@ function triggerRow(t) {
 }
 
 function valueRow(v) {
-  const row = el('div', 'tr' + (v.parent === S.mainNode ? ' big' : '')); row.style.setProperty('--d', v.depth); row.dataset.path = v.path;
+  const row = el('div', 'tr' + (v.parent === S.mainNode ? ' big' : '') + (v.parent === S.mainNode && v.origin === 'runtime' ? ' rtcard' : '')); row.style.setProperty('--d', v.depth); row.dataset.path = v.path;
   const nm = el('div', 'nm');
   const k = el('span', 'k', v.name); k.title = v.path + ' (click to copy the path)'; k.onclick = () => copyText(v.path, v.path);
   nm.append(el('span', 'ty ' + (KNOWN.includes(v.type) ? v.type : 'other'), typeLabel(v.type)), k);
@@ -1046,7 +1088,7 @@ function syncValue(v, initial) {
 setInterval(() => {
   if (!S.r || !S.root) return;
   for (const v of S.values) if (v.row && v.row.isConnected) syncValue(v);
-  syncCards();
+  syncCards(); syncTexts();
 }, 100);
 
 /* lists can grow or shrink at runtime: rebuild the tree when a list length changes */
@@ -1093,6 +1135,87 @@ function revealInTree(path) {
   row.scrollIntoView({ block: 'center', behavior: 'smooth' });
   flash(row, 'located');
   const c = row.querySelector('input, select, .sw'); if (c) setTimeout(() => c.focus({ preventScroll: true }), 300);
+}
+
+/* ======================= texts window ======================= */
+// View models whose name has "bind" or "text" (the localization strings) get their own compact window:
+// a Language card on the left, every other value as a short editable line.
+const isTextVm = (n) => n.kind === 'vm' && !n.isList && n !== S.mainNode && (/bind|text/i.test(n.name) || /bind|text/i.test(n.vmName || ''));
+function findTextNodes() {
+  const out = [];
+  const visit = (n) => { for (const c of n.children) { if (c.kind !== 'vm') continue; if (isTextVm(c)) out.push(c); else visit(c); } };
+  if (S.tree) visit(S.tree);
+  return out;
+}
+function textControl(v, big) {
+  const a = v.acc; let ctl = null;
+  const mark = () => { v.userAt = performance.now(); };
+  if (!a) return el('span', 'ro', '–');
+  if (v.type === 'string' || v.type === 'number' || v.type === 'integer') {
+    ctl = el('input'); ctl.type = v.type === 'string' ? 'text' : 'number'; ctl.spellcheck = false; if (ctl.type === 'number') ctl.step = 'any';
+    ctl.addEventListener('input', () => { if (ctl.type === 'number') { const n = Number(ctl.value); if (ctl.value === '' || !isFinite(n)) return; mark(); a.value = n; } else { mark(); a.value = ctl.value; } });
+  } else if (v.type === 'enumType') {
+    ctl = el('select'); let vals = []; try { vals = a.values || []; } catch (e) {}
+    vals.forEach((x) => { const o = el('option', null, x); o.value = x; ctl.appendChild(o); });
+    ctl.addEventListener('change', () => { mark(); a.value = ctl.value; });
+  } else if (v.type === 'boolean') {
+    ctl = el('button', 'sw'); ctl.setAttribute('role', 'switch'); ctl.onclick = () => { mark(); a.value = !a.value; };
+  } else if (v.type === 'color') {
+    ctl = el('input'); ctl.type = 'text'; ctl.title = 'AARRGGBB';
+    ctl.addEventListener('change', () => { let h = ctl.value.replace(/^#|^0x/i, ''); if (h.length === 6) h = 'FF' + h; if (/^[0-9a-f]{8}$/i.test(h)) { mark(); a.value = parseInt(h, 16) | 0; } });
+  } else return el('span', 'ro', v.type);
+  ctl.setAttribute('aria-label', v.path);
+  S.textCtls.push({ v, ctl, last: undefined });
+  return ctl;
+}
+function syncTexts() {
+  for (const x of S.textCtls) {
+    const cur = readValue(x.v); if (cur === x.last) continue; x.last = cur;
+    if (x.v.type === 'boolean') x.ctl.setAttribute('aria-checked', String(!!cur));
+    else if (document.activeElement !== x.ctl) x.ctl.value = cur == null ? '' : x.v.type === 'color' ? hex8(cur) : String(cur);
+  }
+}
+function renderTexts() {
+  const body = $('textsBody'); body.innerHTML = ''; S.textCtls = [];
+  const nodes = S.textNodes || [];
+  $('textsPanel').hidden = !nodes.length;
+  let count = 0;
+  for (const n of nodes) {
+    const items = [];
+    const collect = (node, rel) => { for (const c of node.children) { const r = rel ? rel + '/' + c.name : c.name; if (c.kind === 'vm') { if (!c.isList) collect(c, r); } else items.push({ n: c, rel: r }); } };
+    collect(n, '');
+    count += items.length;
+    if (nodes.length > 1) body.appendChild(el('div', 'txg-h', n.path + (n.vmName && n.vmName !== n.name ? ' · ' + n.vmName : '')));
+    const g = el('div', 'txg');
+    const lang = items.find((x) => x.n.kind === 'value' && /^language$/i.test(x.n.name));
+    if (lang) {
+      const v = lang.n, card = el('div', 'langcard' + (v.origin === 'runtime' ? ' rt' : ''));
+      const h = el('div', 'lh'); h.append(el('span', null, 'Language'));
+      if (v.origin === 'runtime') h.appendChild(el('span', 'rtag', 'runtime'));
+      card.title = v.path; card.append(h, textControl(v, true));
+      g.appendChild(card);
+    }
+    const lines = el('div', 'tlines');
+    for (const x of items) {
+      if (x === lang) continue;
+      const line = el('div', 'tline'); line.title = x.n.path;
+      const tl = el('div', 'tl'); tl.appendChild(el('span', null, x.rel));
+      if (x.n.kind === 'trigger') {
+        tl.appendChild(el('span', 'ty ' + (x.n.qa ? 'qa' : x.n.origin === 'runtime' ? 'trigger' : 'event'), x.n.qa ? 'qa' : x.n.origin === 'runtime' ? 'trig' : 'event'));
+        const fb = el('button', 'firebtn', 'Fire'); fb.onclick = () => fireTrigger(x.n); fb.style.justifySelf = 'start';
+        line.append(tl, fb);
+      } else {
+        if (x.n.type !== 'string') tl.appendChild(el('span', 'ty ' + (KNOWN.includes(x.n.type) ? x.n.type : 'other'), typeLabel(x.n.type)));
+        if (x.n.origin === 'runtime') tl.appendChild(el('span', 'rtag', 'runtime'));
+        line.append(tl, textControl(x.n));
+      }
+      lines.appendChild(line);
+    }
+    g.appendChild(lines);
+    body.appendChild(g);
+  }
+  $('textsCount').textContent = count ? String(count) : '';
+  syncTexts();
 }
 
 /* ======================= nested objects ======================= */
@@ -1483,9 +1606,9 @@ window.addEventListener('drop', (e) => {
   const limits = {
     data: (v) => { const L = lay.getBoundingClientRect(), st = stage.getBoundingClientRect().width; return clamp(v, MIN_SIDE, L.width - st - 24 - MIN_MID); },
     stage: (v) => { const L = lay.getBoundingClientRect(), d = lay.querySelector('aside').getBoundingClientRect().width; return clamp(v, MIN_SIDE, L.width - d - 24 - MIN_MID); },
-    cards: (v) => clamp(v, MIN_ROW, mid.getBoundingClientRect().height - 12 - MIN_ROW),
+    cards: (v) => clamp(v, MIN_ROW, mid.getBoundingClientRect().bottom - $('nestedPanel').getBoundingClientRect().top - 12 - MIN_ROW),
   };
-  const current = { data: () => lay.querySelector('aside').getBoundingClientRect().width, stage: () => stage.getBoundingClientRect().width, cards: () => mid.firstElementChild.getBoundingClientRect().height };
+  const current = { data: () => lay.querySelector('aside').getBoundingClientRect().width, stage: () => stage.getBoundingClientRect().width, cards: () => $('nestedPanel').getBoundingClientRect().height };
   const set = (k, v) => { sizes[k] = Math.round(limits[k](v)); apply(); };
   function wire(el, key, fromPointer) {
     const row = key === 'cards';
@@ -1509,7 +1632,7 @@ window.addEventListener('drop', (e) => {
   }
   wire($('splitData'), 'data', (e) => e.clientX - lay.getBoundingClientRect().left);
   wire($('splitStage'), 'stage', (e) => e.clientX - stage.getBoundingClientRect().left);
-  wire($('splitMid'), 'cards', (e) => e.clientY - mid.getBoundingClientRect().top);
+  wire($('splitMid'), 'cards', (e) => e.clientY - $('nestedPanel').getBoundingClientRect().top);
   apply();
   // keep saved sizes valid when the window shrinks
   window.addEventListener('resize', () => { for (const k of ['data', 'stage', 'cards']) if (sizes[k]) sizes[k] = Math.round(limits[k](sizes[k])); apply(); });
