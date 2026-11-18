@@ -1386,7 +1386,6 @@ function renderTexts() {
     if (lang) {
       const v = lang.n, card = el('div', 'langcard' + (v.origin === 'runtime' ? ' rt' : ''));
       const h = el('div', 'lh'); h.append(el('span', null, 'Language'));
-      if (v.origin === 'runtime') h.appendChild(el('span', 'rtag', 'runtime'));
       card.title = v.path; card.append(h, textControl(v, true));
       g.appendChild(card);
     }
@@ -1401,7 +1400,6 @@ function renderTexts() {
         line.append(tl, fb);
       } else {
         if (x.n.type !== 'string') tl.appendChild(el('span', 'ty ' + (KNOWN.includes(x.n.type) ? x.n.type : 'other'), typeLabel(x.n.type)));
-        if (x.n.origin === 'runtime') tl.appendChild(el('span', 'rtag', 'runtime'));
         line.append(tl, textControl(x.n));
       }
       lines.appendChild(line);
