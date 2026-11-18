@@ -285,6 +285,13 @@ body.resizing canvas { pointer-events: none; }
 .tr.big .firebtn { height: 26px; font-size: 12px; }
 .maingap { height: 10px; border-bottom: 1px solid var(--line); margin: 0 16px 8px; }
 /* triggers fired from code: large green buttons, always on top */
+.toprow { flex: none; display: flex; align-items: stretch; gap: 8px; padding: 12px 16px 4px; }
+.toprow .tbtns { flex: 1; min-width: 0; padding: 0; }
+.icbtn { flex: none; width: 52px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--raise); border-radius: 8px; color: var(--fg); padding: 0; }
+.icbtn:first-of-type { margin-left: auto; }
+.icbtn:hover { border-color: var(--muted); }
+.icbtn:disabled { opacity: .45; cursor: default; }
+.icbtn svg { width: 20px; height: 20px; }
 .tbtns { flex: none; padding: 12px 16px 4px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; max-height: 42%; overflow: auto; }
 .tbtn { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 46px; padding: 7px 10px; border-radius: 8px; text-align: left;
   border: 1px solid color-mix(in srgb, var(--t-trig) 55%, transparent); background: color-mix(in srgb, var(--t-trig) 13%, var(--panel)); }
@@ -395,8 +402,6 @@ body.resizing canvas { pointer-events: none; }
     <select id="selFit"><option>Contain</option><option>Cover</option><option>Fill</option><option>FitWidth</option><option>FitHeight</option><option>ScaleDown</option><option>None</option><option>Layout</option></select></div>
   <div class="ctl"><label for="selSpeed">Speed</label>
     <select id="selSpeed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
-  <button class="btn" id="btnPlay" disabled>Pause</button>
-  <button class="btn" id="btnRestart" disabled title="Reload the file from the start (resets every value)">Restart</button>
 </header>
 
 <main class="layout" id="layout">
@@ -407,7 +412,11 @@ body.resizing canvas { pointer-events: none; }
       <input id="filter" class="filter" type="text" placeholder="Filter by name or path (e.g. Cup_3, prize)" autocomplete="off" spellcheck="false">
     </div>
     <div class="none" id="vmNone">Load a file to see its view model. Triggers fired from code sit on top as large green buttons, <span class="mono">activate</span> first; the main view model comes next, then every nested one as a tree. Values set from code (no data bind in the file writes them) come first and carry a green <span class="rtag">runtime</span> tag.</div>
-    <div class="tbtns" id="tbtns" hidden aria-label="Triggers fired from code"></div>
+    <div class="toprow" id="topRow" hidden>
+      <div class="tbtns" id="tbtns" hidden aria-label="Triggers fired from code"></div>
+      <button class="icbtn" id="btnPlay" disabled title="Pause" aria-label="Pause"></button>
+      <button class="icbtn" id="btnRestart" disabled title="Restart: reload the file from the start (resets every value)" aria-label="Restart"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 10a5.5 5.5 0 1 1-1.8-4.07" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M15.9 3.2v4.2h-4.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
     <div class="treebar" id="treeBar" hidden><span class="count" id="valCount"></span><button class="linkbtn" id="btnExpand">Expand all</button><button class="linkbtn" id="btnCollapse">Collapse all</button></div>
     <div class="vscroll" id="vScroll"><div class="tree" id="tree"></div></div>
   </aside>
@@ -806,7 +815,7 @@ function onLoaded() {
   }
   if (!S.artboard) S.artboard = firstArtboard();
   try { r.resizeDrawingSurfaceToCanvas(DPR()); } catch (e) {}
-  S.playing = true; $('btnPlay').textContent = 'Pause';
+  S.playing = true; setPlayUI(true); $('topRow').hidden = false;
   S.t0 = vnow(); S.f0 = S.frame; perfReset();
   $('liveDot').classList.add('live');
   fillSelectors(); bindTree();
@@ -1725,10 +1734,18 @@ $('selSpeed').onchange = (e) => { CLK.setSpeed(Number(e.target.value)); };
 $('btnPlay').onclick = () => {
   if (!S.r) return;
   const all = [S.r, ...S.cards.map((c) => c.tr).filter(Boolean)];
-  if (S.playing) { all.forEach((r) => { try { r.pause(); } catch (e) {} }); S.playing = false; $('btnPlay').textContent = 'Play'; $('liveDot').classList.remove('live'); }
-  else { all.forEach((r) => { try { r.play(); } catch (e) {} }); S.playing = true; $('btnPlay').textContent = 'Pause'; $('liveDot').classList.add('live'); }
+  if (S.playing) { all.forEach((r) => { try { r.pause(); } catch (e) {} }); S.playing = false; setPlayUI(false); $('liveDot').classList.remove('live'); }
+  else { all.forEach((r) => { try { r.play(); } catch (e) {} }); S.playing = true; setPlayUI(true); $('liveDot').classList.add('live'); }
 };
 $('btnRestart').onclick = () => { clearLog(); boot(); };
+function setPlayUI(playing) {
+  const b = $('btnPlay');
+  b.innerHTML = playing
+    ? '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3.4" height="12" rx="1" fill="currentColor"/><rect x="11.6" y="4" width="3.4" height="12" rx="1" fill="currentColor"/></svg>'
+    : '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4.2v11.6a.8.8 0 0 0 1.2.7l9.3-5.8a.8.8 0 0 0 0-1.4L7.2 3.5a.8.8 0 0 0-1.2.7z" fill="currentColor"/></svg>';
+  b.title = playing ? 'Pause' : 'Play'; b.setAttribute('aria-label', b.title);
+}
+setPlayUI(true);
 document.querySelectorAll('.swatch').forEach((b) => b.onclick = () => {
   document.querySelectorAll('.swatch').forEach((x) => setPressed(x, x === b));
   stage.classList.remove('bg-dark', 'bg-light'); S.bg = b.dataset.bg; if (S.bg) stage.classList.add(S.bg);
