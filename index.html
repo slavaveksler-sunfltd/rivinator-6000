@@ -126,8 +126,8 @@ select { max-width: 170px; }
 .stp:hover { background: color-mix(in srgb, var(--t-num) 26%, var(--panel)); }
 .stepper input { border: 0; padding: 0; min-width: 0; width: 100%; text-align: center; background: transparent; font: 600 15px var(--mono); font-variant-numeric: tabular-nums; }
 .stepper input:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--t-num); }
-/* booleans: bigger switch on the left, the card brightens when true */
-.rtgrid .tr.big.rtcard.t-boolean { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; min-height: 46px; }
+/* booleans: bigger switch on the right, the card brightens when true */
+.rtgrid .tr.big.rtcard.t-boolean { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 46px; }
 .sw.big { width: 44px; height: 26px; border-radius: 13px; flex: none; }
 .sw.big::after { width: 20px; height: 20px; top: 2px; left: 2px; }
 .sw.big[aria-checked=true]::after { transform: translateX(18px); }
@@ -154,8 +154,8 @@ select { max-width: 170px; }
 .tr.rtcard.t-string { --tc: var(--t-str); }
 .tr.rtcard.t-color { --tc: var(--t-color); }
 .tr.rtcard.t-trigger { --tc: var(--t-trig); }
-.rtgrid .tr.rtcard.tcard { text-align: left; font: inherit; color: inherit; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 46px; cursor: pointer; }
-/* triggers: a bigger play button on the left */
+.rtgrid .tr.big.rtcard.tcard { text-align: left; font: inherit; color: inherit; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; min-height: 46px; cursor: pointer; }
+/* triggers: a bigger play button on the right */
 .tplay { width: 30px; height: 30px; border-radius: 50%; background: var(--t-trig); display: grid; place-items: center; flex: none; }
 .tplay::before { content: ""; margin-left: 3px; border-left: 10px solid var(--t-trig-fg); border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
 .tr.rtcard.tcard:hover { border-color: var(--t-trig); }
@@ -1244,7 +1244,7 @@ function countKids(n) {
 function triggerCard(t) {
   const card = el('button', 'tr big rtcard t-trigger tcard'); card.dataset.path = t.path;
   card.title = 'Fire ' + t.path + ' (a trigger the game fires from code)';
-  card.append(el('span', 'tplay'), el('span', 'k', t.name), el('span', 'tc', String(t.count)));
+  card.append(el('span', 'k', t.name), el('span', 'tc', String(t.count)), el('span', 'tplay'));
   card.onclick = () => fireTrigger(t);
   t.row = card;
   return card;
@@ -1258,13 +1258,13 @@ function rtValueCard(v) {
   v.row = row; v.ctl = null; v.last = undefined; v.setDisplay = null;
   if (!a) { row.append(name, el('span', 'ro', 'read-only')); return row; }
   if (v.type === 'boolean') {
-    // switch on the left; the whole card toggles; brighter when true
+    // switch on the right; the whole card toggles; brighter when true
     row.classList.add('toggle');
     const sw = el('button', 'sw big'); sw.setAttribute('role', 'switch'); sw.setAttribute('aria-label', v.path);
     const toggle = () => { mark(); a.value = !a.value; syncValue(v); };
     sw.onclick = (e) => { e.stopPropagation(); toggle(); };
     row.onclick = toggle;
-    row.append(sw, name);
+    row.append(name, sw);
     v.ctl = sw; v.setDisplay = (cur) => { sw.setAttribute('aria-checked', String(!!cur)); row.classList.toggle('on', !!cur); };
   } else if (v.type === 'number' || v.type === 'integer') {
     // [< 5 >]: arrows step by 1 (Shift: 10); the number can also be typed, or stepped with the up/down keys
