@@ -157,9 +157,9 @@ select { max-width: 170px; }
 .rtgrid .tr.big.rtcard.tcard { text-align: left; font: inherit; color: inherit; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; min-height: 46px; cursor: pointer; }
 /* triggers: a bigger play button on the right */
 .tplay { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  background: color-mix(in srgb, var(--t-trig) 14%, var(--panel)); }
-.tplay::before { content: ""; margin-left: 3px; border-left: 10px solid color-mix(in srgb, var(--t-trig) 55%, var(--panel)); border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
-.tcard:hover .tplay { background: color-mix(in srgb, var(--t-trig) 22%, var(--panel)); }
+  background: color-mix(in srgb, var(--t-trig) 70%, var(--panel)); }
+.tplay::before { content: ""; margin-left: 3px; border-left: 10px solid color-mix(in srgb, var(--t-trig) 24%, #000); border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
+.tcard:hover .tplay { background: color-mix(in srgb, var(--t-trig) 82%, var(--panel)); }
 .tr.rtcard.tcard:hover { border-color: var(--t-trig); }
 .tr.rtcard.tcard.fired { animation: actFire 700ms ease-out; }
 .tr.rtcard.toggle { cursor: pointer; }
