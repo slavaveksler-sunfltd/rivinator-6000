@@ -112,6 +112,39 @@ select { max-width: 170px; }
 .rtlabel { display: flex; align-items: center; gap: 6px; padding: 2px 16px 0; font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
 .rtgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; padding: 6px 16px 10px; }
 .rtgrid .rtag { display: none; }
+/* a small title over each type group */
+.rtgh { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; margin-top: 4px; font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.rtgh:first-child { margin-top: 0; }
+.rtgh::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gc, var(--muted)); }
+.rtgh.g-trigger { --gc: var(--t-trig); } .rtgh.g-number { --gc: var(--t-num); } .rtgh.g-enumType { --gc: var(--t-enum); }
+.rtgh.g-boolean { --gc: var(--t-bool); } .rtgh.g-string { --gc: var(--t-str); } .rtgh.g-color { --gc: var(--t-color); }
+.rtcard .k { font: 600 12.5px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rtcard.changed .stepper, .rtcard.changed .dd, .rtcard.changed .rtin { animation: valChange 800ms ease-out; }
+/* numbers: [< 5 >] */
+.stepper { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px; height: 32px; border: 1px solid color-mix(in srgb, var(--t-num) 40%, var(--line)); border-radius: 7px; overflow: hidden; background: var(--panel); }
+.stp { border: 0; padding: 0; background: color-mix(in srgb, var(--t-num) 12%, var(--panel)); color: var(--fg); font: 600 18px/1 var(--sans); }
+.stp:hover { background: color-mix(in srgb, var(--t-num) 26%, var(--panel)); }
+.stepper input { border: 0; padding: 0; min-width: 0; width: 100%; text-align: center; background: transparent; font: 600 15px var(--mono); font-variant-numeric: tabular-nums; }
+.stepper input:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--t-num); }
+/* booleans: bigger switch on the left, the card brightens when true */
+.rtgrid .tr.big.rtcard.t-boolean { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; min-height: 46px; }
+.sw.big { width: 44px; height: 26px; border-radius: 13px; flex: none; }
+.sw.big::after { width: 20px; height: 20px; top: 2px; left: 2px; }
+.sw.big[aria-checked=true]::after { transform: translateX(18px); }
+.rtcard.t-boolean .sw[aria-checked=true] { background: var(--t-bool); border-color: var(--t-bool); }
+.rtcard.t-boolean .sw[aria-checked=true]::after { background: #2a2200; }
+.tr.big.rtcard.t-boolean.on { background-color: color-mix(in srgb, var(--t-bool) 30%, var(--panel)); border-color: var(--t-bool); }
+/* enums: a dropdown that opens below the field */
+.dd { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 34px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--t-enum) 40%, var(--line)); border-radius: 7px; background: var(--panel); font: 600 13px var(--mono); text-align: left; min-width: 0; }
+.dd .ddv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd::after { content: ""; flex: none; border-top: 5px solid currentColor; border-left: 4px solid transparent; border-right: 4px solid transparent; opacity: .6; }
+.dd:hover, .dd.open { border-color: var(--t-enum); }
+.ddmenu { position: fixed; z-index: 50; display: grid; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 28px rgba(0, 0, 0, .3); overflow: auto; }
+.ddopt { text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 5px; font: 13px var(--mono); white-space: nowrap; }
+.ddopt:hover, .ddopt:focus-visible { background: color-mix(in srgb, var(--t-enum) 16%, var(--panel)); outline: none; }
+.ddopt.sel { color: var(--t-enum); font-weight: 600; }
+/* strings and colors */
+.rtin { width: 100%; height: 32px; min-width: 0; padding: 0 9px; font: 13px var(--mono); border: 1px solid color-mix(in srgb, var(--tc) 40%, var(--line)); border-radius: 7px; background: var(--panel); }
 .tr.big.rtcard { --tc: var(--t-trig); margin: 0; padding: 8px 10px 9px; border-radius: 9px; min-width: 0; background-image: none;
   border: 1px solid color-mix(in srgb, var(--tc) 40%, transparent); background-color: color-mix(in srgb, var(--tc) 11%, var(--panel)); }
 .tr.big.rtcard:hover { background-color: color-mix(in srgb, var(--tc) 16%, var(--panel)); }
@@ -121,8 +154,10 @@ select { max-width: 170px; }
 .tr.rtcard.t-string { --tc: var(--t-str); }
 .tr.rtcard.t-color { --tc: var(--t-color); }
 .tr.rtcard.t-trigger { --tc: var(--t-trig); }
-.tr.rtcard.tcard { text-align: left; font: inherit; color: inherit; grid-template-columns: minmax(0, 1fr) auto; cursor: pointer; }
-.tr.rtcard.tcard .ic { width: 0; height: 0; border-left: 8px solid var(--t-trig); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+.rtgrid .tr.rtcard.tcard { text-align: left; font: inherit; color: inherit; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 46px; cursor: pointer; }
+/* triggers: a bigger play button on the left */
+.tplay { width: 30px; height: 30px; border-radius: 50%; background: var(--t-trig); display: grid; place-items: center; flex: none; }
+.tplay::before { content: ""; margin-left: 3px; border-left: 10px solid var(--t-trig-fg); border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
 .tr.rtcard.tcard:hover { border-color: var(--t-trig); }
 .tr.rtcard.tcard.fired { animation: actFire 700ms ease-out; }
 .tr.rtcard.toggle { cursor: pointer; }
@@ -1131,6 +1166,7 @@ function orderedKids(n) {
   return n.children.map((c, i) => [c, i]).sort((a, b) => (rank(a[0]) - rank(b[0])) || ((b[0] === S.mainNode) - (a[0] === S.mainNode)) || (a[1] - b[1])).map((x) => x[0]);
 }
 function renderTree() {
+  closeEnumMenu();
   const box = $('tree'); box.innerHTML = ''; S.vmRows.clear();
   const main = S.mainNode;
   const add = (n) => {
@@ -1158,7 +1194,17 @@ function renderTree() {
       const rtv = kids.filter((c) => (c.kind === 'value' || (c.kind === 'trigger' && !c.btn)) && c.origin === 'runtime');
       if (rtv.length) {
         const lab = el('div', 'rtlabel'); lab.append(el('span', 'rtag', 'runtime'), el('span', null, 'set from code'));
-        const grid = el('div', 'rtgrid'); rtv.forEach((v) => grid.appendChild(v.kind === 'trigger' ? triggerCard(v) : valueRow(v)));
+        const grid = el('div', 'rtgrid');
+        // one titled group per type, in the order triggers, numbers, enums, booleans, strings, then the rest
+        const GROUPS = [['trigger', 'Triggers', (c) => c.kind === 'trigger'], ['number', 'Numbers', (c) => isNum(c)], ['enumType', 'Enums', (c) => c.type === 'enumType'],
+          ['boolean', 'Booleans', (c) => c.type === 'boolean'], ['string', 'Strings', (c) => c.type === 'string'], ['color', 'Colors', (c) => c.type === 'color'], ['other', 'Other', () => true]];
+        const left = new Set(rtv);
+        for (const [key, title, test] of GROUPS) {
+          const items = rtv.filter((c) => left.has(c) && test(c)); if (!items.length) continue;
+          items.forEach((c) => left.delete(c));
+          grid.appendChild(el('div', 'rtgh g-' + key, title));
+          items.forEach((c) => grid.appendChild(c.kind === 'trigger' ? triggerCard(c) : rtValueCard(c)));
+        }
         box.append(lab, grid);
       }
       kids = kids.filter((c) => !rtv.includes(c));
@@ -1198,12 +1244,94 @@ function countKids(n) {
 function triggerCard(t) {
   const card = el('button', 'tr big rtcard t-trigger tcard'); card.dataset.path = t.path;
   card.title = 'Fire ' + t.path + ' (a trigger the game fires from code)';
-  const nm = el('div', 'nm'); nm.append(el('span', 'ty trigger', 'trig'), el('span', 'k', t.name));
-  const val = el('div', 'val'); val.append(el('span', 'ic'), el('span', 'tc', String(t.count)));
-  card.append(nm, val);
+  card.append(el('span', 'tplay'), el('span', 'k', t.name), el('span', 'tc', String(t.count)));
   card.onclick = () => fireTrigger(t);
   t.row = card;
   return card;
+}
+// a value of the main view model set from code, as a compact card: the control depends on the type
+const fmtNum = (n) => (n == null || !isFinite(n)) ? '' : Number.isInteger(n) ? String(n) : String(+Number(n).toFixed(4));
+function rtValueCard(v) {
+  const a = v.acc, mark = () => { v.userAt = performance.now(); };
+  const row = el('div', 'tr big rtcard t-' + v.type); row.dataset.path = v.path; row.title = v.path;
+  const name = el('span', 'k', v.name);
+  v.row = row; v.ctl = null; v.last = undefined; v.setDisplay = null;
+  if (!a) { row.append(name, el('span', 'ro', 'read-only')); return row; }
+  if (v.type === 'boolean') {
+    // switch on the left; the whole card toggles; brighter when true
+    row.classList.add('toggle');
+    const sw = el('button', 'sw big'); sw.setAttribute('role', 'switch'); sw.setAttribute('aria-label', v.path);
+    const toggle = () => { mark(); a.value = !a.value; syncValue(v); };
+    sw.onclick = (e) => { e.stopPropagation(); toggle(); };
+    row.onclick = toggle;
+    row.append(sw, name);
+    v.ctl = sw; v.setDisplay = (cur) => { sw.setAttribute('aria-checked', String(!!cur)); row.classList.toggle('on', !!cur); };
+  } else if (v.type === 'number' || v.type === 'integer') {
+    // [< 5 >]: arrows step by 1 (Shift: 10); the number can also be typed, or stepped with the up/down keys
+    const st = el('div', 'stepper');
+    const dec = el('button', 'stp', '‹'), inc = el('button', 'stp', '›'), inp = el('input');
+    inp.type = 'text'; inp.inputMode = 'decimal'; inp.spellcheck = false; inp.setAttribute('aria-label', v.path);
+    dec.setAttribute('aria-label', 'Decrease ' + v.path); inc.setAttribute('aria-label', 'Increase ' + v.path);
+    const bump = (d) => { mark(); a.value = (Number(a.value) || 0) + d; syncValue(v); };
+    dec.onclick = (e) => bump(e.shiftKey ? -10 : -1); inc.onclick = (e) => bump(e.shiftKey ? 10 : 1);
+    inp.addEventListener('input', () => { const n = Number(inp.value); if (inp.value.trim() !== '' && isFinite(n)) { mark(); a.value = n; } });
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); bump((e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)); inp.value = fmtNum(a.value); }
+      else if (e.key === 'Enter') inp.blur();
+    });
+    inp.addEventListener('blur', () => { inp.value = fmtNum(readValue(v)); });
+    st.append(dec, inp, inc); row.append(name, st);
+    v.ctl = inp; v.setDisplay = (cur, focused) => { if (!focused) inp.value = fmtNum(cur); };
+  } else if (v.type === 'enumType') {
+    // a dropdown that opens below the field, so it never covers it
+    const dd = el('button', 'dd'); dd.setAttribute('aria-haspopup', 'listbox'); dd.setAttribute('aria-label', v.path);
+    const dv = el('span', 'ddv'); dd.appendChild(dv);
+    dd.onclick = () => openEnumMenu(v, dd);
+    dd.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openEnumMenu(v, dd); } });
+    row.append(name, dd);
+    v.ctl = dd; v.setDisplay = (cur) => { dv.textContent = cur == null ? '' : String(cur); };
+  } else if (v.type === 'string' || v.type === 'color') {
+    const inp = el('input', 'rtin'); inp.type = 'text'; inp.spellcheck = false; inp.setAttribute('aria-label', v.path);
+    if (v.type === 'string') inp.addEventListener('input', () => { mark(); a.value = inp.value; });
+    else { inp.title = 'AARRGGBB'; inp.addEventListener('change', () => { let h = inp.value.replace(/^#|^0x/i, ''); if (h.length === 6) h = 'FF' + h; if (/^[0-9a-f]{8}$/i.test(h)) { mark(); a.value = parseInt(h, 16) | 0; } }); }
+    row.append(name, inp);
+    v.ctl = inp; v.setDisplay = (cur, focused) => { if (!focused) inp.value = cur == null ? '' : v.type === 'color' ? hex8(cur) : String(cur); };
+  } else { row.append(name, el('span', 'ro', v.type)); return row; }
+  syncValue(v, true);
+  return row;
+}
+let ddMenu = null;
+function closeEnumMenu() {
+  if (!ddMenu) return;
+  ddMenu._btn.classList.remove('open'); ddMenu.remove(); ddMenu = null;
+  document.removeEventListener('pointerdown', ddOutside, true); window.removeEventListener('resize', closeEnumMenu); $('vScroll').removeEventListener('scroll', closeEnumMenu);
+}
+function ddOutside(e) { if (ddMenu && !ddMenu.contains(e.target) && !ddMenu._btn.contains(e.target)) closeEnumMenu(); }
+function openEnumMenu(v, btn) {
+  const same = ddMenu && ddMenu._btn === btn; closeEnumMenu(); if (same) return;
+  let vals = []; try { vals = v.acc.values || []; } catch (e) {}
+  const cur = readValue(v);
+  const m = el('div', 'ddmenu'); m.setAttribute('role', 'listbox'); m._btn = btn;
+  vals.forEach((x) => {
+    const o = el('button', 'ddopt' + (x === cur ? ' sel' : ''), x); o.setAttribute('role', 'option'); o.setAttribute('aria-selected', String(x === cur));
+    o.onclick = () => { v.userAt = performance.now(); v.acc.value = x; syncValue(v); closeEnumMenu(); btn.focus(); };
+    m.appendChild(o);
+  });
+  m.addEventListener('keydown', (e) => {
+    const opts = [...m.children]; const i = opts.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); (opts[i + 1] || opts[0]).focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); (opts[i - 1] || opts[opts.length - 1]).focus(); }
+    else if (e.key === 'Escape' || e.key === 'Tab') { closeEnumMenu(); btn.focus(); }
+  });
+  document.body.appendChild(m);
+  const r = btn.getBoundingClientRect();
+  m.style.left = Math.min(r.left, window.innerWidth - Math.max(r.width, m.offsetWidth) - 8) + 'px';
+  m.style.top = (r.bottom + 4) + 'px'; m.style.minWidth = r.width + 'px';
+  m.style.maxHeight = Math.max(120, window.innerHeight - r.bottom - 16) + 'px';
+  btn.classList.add('open'); ddMenu = m;
+  setTimeout(() => document.addEventListener('pointerdown', ddOutside, true));
+  window.addEventListener('resize', closeEnumMenu); $('vScroll').addEventListener('scroll', closeEnumMenu, { passive: true });
+  (m.querySelector('.sel') || m.firstElementChild || btn).focus();
 }
 function triggerRow(t) {
   const rt = t.origin === 'runtime' || t.origin === 'unknown';
@@ -1262,7 +1390,7 @@ function valueRow(v) {
   }
   if (ctl) { ctl.setAttribute('aria-label', v.path); val.appendChild(ctl); }
   row.append(nm, val);
-  v.row = row; v.ctl = ctl; v.last = undefined;
+  v.row = row; v.ctl = ctl; v.last = undefined; v.setDisplay = null;
   syncValue(v, true);
   return row;
 }
@@ -1275,6 +1403,7 @@ function syncValue(v, initial) {
   const fromFile = !initial && v.last !== undefined && performance.now() - v.userAt > 400;
   v.last = cur;
   const focused = document.activeElement === v.ctl;
+  if (v.setDisplay) { v.setDisplay(cur, focused); if (fromFile) { flash(v.row, 'changed'); reclassify(v); } return; }
   if (v.type === 'boolean') { v.ctl.setAttribute('aria-checked', String(!!cur)); v.bv.textContent = cur ? 'true' : 'false'; }
   else if (v.type === 'color') { const h = hex8(cur); if (!focused) v.ctl.value = h; v.pick.value = '#' + h.slice(2); }
   else if (!focused) v.ctl.value = cur == null ? '' : String(cur);
