@@ -341,13 +341,12 @@ body.resizing canvas { pointer-events: none; }
 .cards.list .cvals dt { max-width: 110px; }
 .cards.list .cvals dd { flex: none; margin-right: 6px; }
 .cards.list .cvals dd input, .cards.list .cvals dd select { width: 84px; }
-.cards.grid .cgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-.cards.grid .card { grid-template-columns: minmax(0, 1fr); }
-.cards.grid .thumb { width: 100%; height: 140px; }
-/* grid tiles are narrow: each value's name sits above its field, so the field gets the full width */
-.cards.grid .cvals { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+.cards.grid .cgrid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+/* grid tiles: thumbnail on the left, name, triggers and values to its right */
+.cards.grid .card { grid-template-columns: 72px minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: start; }
+.cards.grid .thumb { width: 72px; height: 96px; grid-row: 1 / span 2; }
+.cards.grid .cvals { grid-column: 2; grid-template-columns: minmax(0, auto) minmax(84px, 1fr); gap: 3px 6px; padding-top: 5px; }
 .cards.grid .cvals dt { max-width: none; }
-.cards.grid .cvals dd { margin-bottom: 5px; }
 .card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 9px; border: 1px solid var(--line); border-radius: 9px; padding: 8px; background: var(--panel); position: relative; }
 .card.fired { animation: cardFire 750ms ease-out; }
 @keyframes cardFire { 0% { border-color: var(--fire); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fire) 45%, transparent); background: var(--fire-soft); } 100% { border-color: var(--line); box-shadow: 0 0 0 0 transparent; background: var(--panel); } }
@@ -379,6 +378,15 @@ body.resizing canvas { pointer-events: none; }
 .cvals dt { color: var(--muted); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; display: flex; align-items: center; gap: 5px; }
 .cvals dt.t-number, .cvals dt.t-integer { color: var(--t-num); } .cvals dt.t-string { color: var(--t-str); } .cvals dt.t-boolean { color: var(--t-bool); }
 .cvals dt.t-enumType { color: var(--t-enum); } .cvals dt.t-color { color: var(--t-color); }
+/* compact versions of the data panel's controls */
+.cvals dd .sw { display: block; }
+.cvals dd .sw[aria-checked=true] { background: var(--t-bool); border-color: var(--t-bool); }
+.cvals dd .sw[aria-checked=true]::after { background: #2a2200; }
+.stepper.sm { height: 22px; grid-template-columns: 18px minmax(0, 1fr) 18px; border-radius: 5px; }
+.stepper.sm .stp { font-size: 13px; }
+.cvals dd .stepper.sm input { height: auto; border: 0; padding: 0; border-radius: 0; background: transparent; font: 600 11px var(--mono); }
+.cards.list .cvals dd .stepper.sm { width: 84px; }
+.cards.list .cvals dd .stepper.sm input { width: 100%; }
 .cvals .rdot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--t-trig); }
 .cvals dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .cvals dd.ro { cursor: pointer; }
@@ -2135,10 +2143,31 @@ function fillCard(card) {
     dt.classList.add('t-' + v.type);
     if (v.origin === 'runtime') { const d = el('span', 'rdot'); d.setAttribute('aria-label', 'runtime'); dt.appendChild(d); dt.title = v.path + ' · set from code (runtime). Click to show it in the data tree'; }
     dt.onclick = () => revealInTree(v.path);
-    const dd = el('dd'); x.dd = dd;
+    const dd = el('dd'); x.dd = dd; x.set = null;
     const mark = () => { v.userAt = performance.now(); };
-    // strings, numbers and enums are edited right on the card; other types open in the data tree
-    if (a && (v.type === 'number' || v.type === 'integer')) {
+    const rt = v.origin === 'runtime';
+    // values set from code get the data panel's controls, compact: a switch for booleans, [‹ 5 ›] for numbers
+    if (a && rt && v.type === 'boolean') {
+      const sw = el('button', 'sw'); sw.setAttribute('role', 'switch'); sw.setAttribute('aria-label', v.path);
+      sw.onclick = () => { mark(); a.value = !a.value; syncCard(card); };
+      x.ctl = sw; x.set = (cur) => sw.setAttribute('aria-checked', String(!!cur)); dd.appendChild(sw);
+    } else if (a && rt && (v.type === 'number' || v.type === 'integer')) {
+      const st = el('div', 'stepper sm');
+      const dec = el('button', 'stp', '‹'), inc = el('button', 'stp', '›'), inp = el('input');
+      inp.type = 'text'; inp.inputMode = 'decimal'; inp.spellcheck = false; inp.setAttribute('aria-label', v.path);
+      dec.setAttribute('aria-label', 'Decrease ' + v.path); inc.setAttribute('aria-label', 'Increase ' + v.path);
+      dec.title = inc.title = 'Shift-click: steps of 10';
+      const bump = (d) => { mark(); a.value = (Number(a.value) || 0) + d; syncCard(card); };
+      dec.onclick = (e) => bump(e.shiftKey ? -10 : -1); inc.onclick = (e) => bump(e.shiftKey ? 10 : 1);
+      inp.addEventListener('input', () => { const n = Number(inp.value); if (inp.value.trim() !== '' && isFinite(n)) { mark(); a.value = n; } });
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); bump((e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1)); inp.value = fmtNum(a.value); }
+        else if (e.key === 'Enter') inp.blur();
+      });
+      inp.addEventListener('blur', () => { inp.value = fmtNum(readValue(v)); });
+      st.append(dec, inp, inc); dd.appendChild(st);
+      x.ctl = inp; x.set = (cur, focused) => { if (!focused) inp.value = fmtNum(cur); };
+    } else if (a && (v.type === 'number' || v.type === 'integer')) {
       const i = el('input'); i.type = 'number'; i.step = 'any'; i.setAttribute('aria-label', v.path);
       i.addEventListener('input', () => { const n = Number(i.value); if (i.value !== '' && isFinite(n)) { mark(); a.value = n; } });
       x.ctl = i; dd.appendChild(i);
@@ -2203,7 +2232,8 @@ function syncCard(card) {
     const cur = readValue(x.v);
     if (cur !== x.shown) {
       x.shown = cur;
-      if (x.ctl) { if (document.activeElement !== x.ctl) x.ctl.value = cur == null ? '' : String(cur); }
+      if (x.set) x.set(cur, document.activeElement === x.ctl);
+      else if (x.ctl) { if (document.activeElement !== x.ctl) x.ctl.value = cur == null ? '' : String(cur); }
       else if (x.dd) x.dd.textContent = fmtVal(x.v, cur);
     }
     if (card.tInst && cur !== undefined && cur !== x.mirrored) {
@@ -2274,6 +2304,18 @@ document.addEventListener('keydown', (ev) => {
   else if (!$('recModal').hidden && ev.key === 'Escape') closeRecModal();
 });
 $('viewer').addEventListener('click', (e) => { if (e.target === $('viewer')) $('viewer').hidden = true; });
+// Space fires the main view model's activate trigger (the same one as the big green button), unless you are typing in a field
+let spaceFired = false;
+document.addEventListener('keydown', (ev) => {
+  if (ev.code !== 'Space' || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (ev.target.closest && ev.target.closest('input, textarea, select, [contenteditable]:not([contenteditable=false])')) return;
+  if (!$('viewer').hidden || !$('recModal').hidden) return;
+  const t = S.triggers.filter((x) => x.name === 'activate').sort((a, b) => a.depth - b.depth)[0];
+  if (!t) return;
+  ev.preventDefault(); ev.stopPropagation(); spaceFired = true;   // a focused button doesn't also get clicked
+  if (!ev.repeat) fireTrigger(t);
+}, true);
+document.addEventListener('keyup', (ev) => { if (ev.code === 'Space' && spaceFired) { spaceFired = false; ev.preventDefault(); ev.stopPropagation(); } }, true);
 $('recModal').addEventListener('click', (e) => { if (e.target === $('recModal')) closeRecModal(); });
 
 /* ======================= recording ======================= */
