@@ -377,7 +377,9 @@ body.resizing canvas { pointer-events: none; }
 .cards.hide-qa .chip.qa { display: none; }
 .cvals { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 8px; align-items: center; font: 11px/1.45 var(--mono); margin: 0; padding-top: 6px; border-top: 1px solid var(--line); }
 .cvals dt { color: var(--muted); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; display: flex; align-items: center; gap: 5px; }
-.cvals dt.rt { color: var(--t-trig); font-weight: 600; }
+.cvals dt.t-number, .cvals dt.t-integer { color: var(--t-num); } .cvals dt.t-string { color: var(--t-str); } .cvals dt.t-boolean { color: var(--t-bool); }
+.cvals dt.t-enumType { color: var(--t-enum); } .cvals dt.t-color { color: var(--t-color); }
+.cvals .rdot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--t-trig); }
 .cvals dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .cvals dd.ro { cursor: pointer; }
 .cvals dt:hover, .cvals dd.ro:hover { color: var(--accent); }
@@ -2129,8 +2131,9 @@ function fillCard(card) {
     const v = x.v, a = v.acc;
     x.ctl = null; x.shown = undefined;
     const dt = el('dt', null, x.rel); dt.title = v.path + ' (click to show it in the data tree)';
-    // set from code: the name is green instead of carrying a "runtime" tag (cards are tight on space)
-    if (v.origin === 'runtime') { dt.classList.add('rt'); dt.title = v.path + ' · set from code (runtime). Click to show it in the data tree'; }
+    // the name in its type's color, as in the data panel; set from code: a small green dot instead of the "runtime" tag
+    dt.classList.add('t-' + v.type);
+    if (v.origin === 'runtime') { const d = el('span', 'rdot'); d.setAttribute('aria-label', 'runtime'); dt.appendChild(d); dt.title = v.path + ' · set from code (runtime). Click to show it in the data tree'; }
     dt.onclick = () => revealInTree(v.path);
     const dd = el('dd'); x.dd = dd;
     const mark = () => { v.userAt = performance.now(); };

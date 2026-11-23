@@ -23,7 +23,7 @@ Files never leave your browser: nothing is uploaded anywhere.
 - **Nested objects:** a card for every nested view model that is bound to an artboard (a component such as a cup or a prize). Each card shows:
   - that artboard as a live thumbnail
   - its triggers, one click to fire
-  - its strings, numbers and enums, editable in place (names in green are set from code)
+  - its strings, numbers and enums, editable in place (each name in its type's color; a green dot marks values set from code)
 
   Cards are grouped by their view model (CupVM, PrizeVM…), with its name and count above each group. List view puts each object on one compact line: a small thumbnail, its name, its triggers and its values (scroll the line sideways if it runs long). Grid view shows tiles with a bigger thumbnail on top and each value's field under its name. A card flashes when a trigger inside it fires, and the card with the latest trigger moves to the top of its group.
 - **Trigger activations:** every view model trigger the file fires, with time and frame, subscribed with `.on()` the way the game integration listens.
