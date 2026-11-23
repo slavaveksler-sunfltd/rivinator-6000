@@ -318,7 +318,18 @@ body.resizing canvas { pointer-events: none; }
 .log.hide-qa .row.qa, .log.hide-events .row.event, .log.hide-you .row.you { display: none; }
 
 /* nested objects */
-.cards { flex: 1; min-height: 0; overflow: auto; padding: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; align-content: start; }
+.cards { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 10px; display: grid; gap: 4px; align-content: start; }
+.cards > .hint { margin-top: 10px; }
+/* one group per view model, its name above the cards */
+.cgroup { display: grid; gap: 6px; }
+.cgh { position: sticky; top: 0; z-index: 2; display: flex; align-items: baseline; gap: 6px; padding: 8px 2px 4px; background: var(--panel); font: 600 11px var(--mono); color: var(--t-vm); }
+.cgh .count { font-weight: 400; color: var(--muted); }
+.cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+/* list: one card per row; grid: tiles with the thumbnail on top */
+.cards.list .cgrid { grid-template-columns: minmax(0, 1fr); }
+.cards.grid .cgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.cards.grid .card { grid-template-columns: minmax(0, 1fr); }
+.cards.grid .thumb { width: 100%; height: 140px; }
 .card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 9px; border: 1px solid var(--line); border-radius: 9px; padding: 8px; background: var(--panel); position: relative; }
 .card.fired { animation: cardFire 750ms ease-out; }
 @keyframes cardFire { 0% { border-color: var(--fire); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fire) 45%, transparent); background: var(--fire-soft); } 100% { border-color: var(--line); box-shadow: 0 0 0 0 transparent; background: var(--panel); } }
@@ -580,9 +591,13 @@ body.resizing canvas { pointer-events: none; }
         <div class="wbar">
           <h2>Nested objects</h2><span class="count" id="nestCount"></span>
           <div class="spacer"></div>
+          <div class="seg" role="group" aria-label="View">
+            <button class="tog icon" id="nList" aria-pressed="true" title="List" aria-label="List view"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="3" height="3" rx=".6"/><rect x="2" y="9.5" width="3" height="3" rx=".6"/><rect x="6.5" y="3.8" width="7.5" height="1.4" rx=".7"/><rect x="6.5" y="10.3" width="7.5" height="1.4" rx=".7"/></svg></button>
+            <button class="tog icon" id="nGrid" aria-pressed="false" title="Grid" aria-label="Grid view"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx=".8"/><rect x="9" y="2" width="5" height="5" rx=".8"/><rect x="2" y="9" width="5" height="5" rx=".8"/><rect x="9" y="9" width="5" height="5" rx=".8"/></svg></button>
+          </div>
           <button class="tog" id="tgVals" aria-pressed="true" title="Show values on the cards">Values</button>
         </div>
-        <div class="cards" id="cards"><div class="hint" id="cardsEmpty" style="grid-column: 1 / -1">Each nested view model whose view model is bound to an artboard in the file (a component placed in this artboard, like a cup or a prize) gets a card here: that artboard as a live thumbnail, its triggers to fire, its values. A card flashes when a trigger inside it fires.</div></div>
+        <div class="cards list" id="cards"><div class="hint" id="cardsEmpty">Each nested view model whose view model is bound to an artboard in the file (a component placed in this artboard, like a cup or a prize) gets a card here: that artboard as a live thumbnail, its triggers to fire, its values. A card flashes when a trigger inside it fires.</div></div>
       </section>
       <div class="split h" id="splitMid" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Resize nested objects and the trigger log" title="Drag to resize · double-click to reset"></div>
       <div class="logrow" id="logRow">
@@ -1267,6 +1282,14 @@ function bindToggle(btn, cls, target) { btn.onclick = () => { const on = btn.get
 bindToggle($('tgYou'), 'hide-you', logBox);
 bindToggle($('tgEvents'), 'hide-events', logBox);
 bindToggle($('tgVals'), 'no-vals', $('cards'));
+function setCardView(v) {
+  $('cards').classList.toggle('list', v === 'list'); $('cards').classList.toggle('grid', v === 'grid');
+  setPressed($('nList'), v === 'list'); setPressed($('nGrid'), v === 'grid');
+  // the thumbnails change size: redraw each at its new size
+  requestAnimationFrame(() => { for (const c of S.cards) if (c.tr) { try { c.tr.resizeDrawingSurfaceToCanvas(DPR()); } catch (e) {} } });
+}
+$('nList').onclick = () => setCardView('list');
+$('nGrid').onclick = () => setCardView('grid');
 function setQa(on) { ['tgQa', 'tgQa2'].forEach((id) => setPressed($(id), on)); logBox.classList.toggle('hide-qa', !on); $('vScroll').classList.toggle('hide-qa', !on); $('cards').classList.toggle('hide-qa', !on); }
 $('tgQa').onclick = () => setQa($('tgQa').getAttribute('aria-pressed') !== 'true');
 $('tgQa2').onclick = () => setQa($('tgQa2').getAttribute('aria-pressed') !== 'true');
@@ -2001,7 +2024,7 @@ function teardownCards() {
   // each thumbnail holds its own reference on the shared file, so cleanup() leaves the file to the others
   for (const c of S.cards) { if (c.tr) { try { c.tr.stopRendering(); } catch (e) {} try { c.tr.cleanup(); } catch (e) {} } }
   S.cards = []; S.cardOf.clear();
-  const box = $('cards'); [...box.querySelectorAll('.card')].forEach((c) => c.remove());
+  const box = $('cards'); [...box.querySelectorAll('.cgroup')].forEach((c) => c.remove());
   $('nestCount').textContent = '';
 }
 
@@ -2015,6 +2038,13 @@ async function buildCards(gen) {
   const nodes = S.vmNodes.filter((n) => !n.isList && n.vmName && S.abByVm.has(n.vmName) && S.abByVm.get(n.vmName).some((a) => a.artboard !== S.artboard))
     .sort((a, b) => natural(a.path, b.path));
   const isCard = new Set(nodes);
+  // grouped by view model (CupVM, PrizeVM…), groups in name order, each group's cards by path
+  const groups = new Map();
+  for (const vm of [...new Set(nodes.map((n) => n.vmName))].sort(natural)) {
+    const g = el('div', 'cgroup'); g.dataset.vm = vm;
+    const h = el('div', 'cgh', vm); h.append(el('span', 'count', String(nodes.filter((n) => n.vmName === vm).length)));
+    const grid = el('div', 'cgrid'); g.append(h, grid); box.appendChild(g); groups.set(vm, grid);
+  }
   for (const n of nodes) {
     const opts = S.abByVm.get(n.vmName).filter((a) => a.artboard !== S.artboard);
     const pick = opts.find((a) => a.artboard.toLowerCase().includes(n.name.toLowerCase().replace(/[_\d]+$/, ''))) || opts[0];
@@ -2031,7 +2061,7 @@ async function buildCards(gen) {
     collect(n, '');
     const card = { node: n, ab: pick, trigs, vals, tr: null, tInst: null, chips: [], el: null, heat: null };
     renderCard(card);
-    box.appendChild(card.el);
+    groups.get(n.vmName).appendChild(card.el);
     S.cards.push(card);
     trigs.forEach((x) => { if (!S.cardOf.has(x.t)) S.cardOf.set(x.t, []); S.cardOf.get(x.t).push(card); });
     startThumb(card, gen);
@@ -2112,7 +2142,8 @@ function fillCard(card) {
 
 function startThumb(card, gen) {
   const cv = card.canvas;
-  cv.width = 64 * DPR(); cv.height = 84 * DPR();
+  const r = cv.getBoundingClientRect();
+  cv.width = Math.round((r.width || 64) * DPR()); cv.height = Math.round((r.height || 84) * DPR());
   try {
     const tr = new RT.Rive({
       riveFile: S.thumbFile, canvas: cv, artboard: card.ab.artboard, stateMachines: card.ab.sm || undefined,
@@ -2163,10 +2194,10 @@ function syncCards() { for (const c of S.cards) syncCard(c); }
 
 function cardTrigger(t, entry) {
   const cards = S.cardOf.get(t); if (!cards) return;
-  const box = $('cards');
   for (const card of cards) {
-    const first = box.querySelector('.card');
-    if (first && first !== card.el) box.insertBefore(card.el, first);
+    // the card with the latest trigger moves to the top of its view model's group
+    const grid = card.el.parentElement, first = grid && grid.firstElementChild;
+    if (first && first !== card.el) grid.insertBefore(card.el, first);
     flash(card.el);
     const ch = card.chips.find((x) => x._t === t);
     if (ch) { ch.querySelector('.n').textContent = String(t.count); flash(ch); }

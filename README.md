@@ -25,7 +25,7 @@ Files never leave your browser: nothing is uploaded anywhere.
   - its triggers, one click to fire
   - its strings, numbers and enums, editable in place
 
-  A card flashes when a trigger inside it fires, and the card with the latest trigger moves to the top.
+  Cards are grouped by their view model (CupVM, PrizeVM…), with its name and count above each group. List view shows one card per row with the thumbnail on the left; grid view shows tiles with a bigger thumbnail on top. A card flashes when a trigger inside it fires, and the card with the latest trigger moves to the top of its group.
 - **Trigger activations:** every view model trigger the file fires, with time and frame, subscribed with `.on()` the way the game integration listens.
 - **qa_ screenshots:** each `qa_` trigger is screenshotted the frame it fires. Click its row in the log to see it, step through all of them, and save any as PNG.
 - **Performance:** a compact readout under Data. It shows the runtime's time per frame for the main artboard (average and worst), fps, dropped frames, card thumbnails' cost, and memory, with a short graph. The inspector only reads the clock around the runtime's draw; nothing in the file or runtime changes. Compare files or moments on the same machine: a phone is several times slower than a desktop, so green means under a quarter of the frame budget.
