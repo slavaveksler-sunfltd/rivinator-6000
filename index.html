@@ -135,6 +135,18 @@ select { max-width: 170px; }
 .arow.png { background: color-mix(in srgb, var(--err) 9%, transparent); }
 .atile.png { background: color-mix(in srgb, var(--err) 9%, var(--panel)); border-color: color-mix(in srgb, var(--err) 35%, var(--line)); }
 .png .afmt { color: var(--err); border-color: color-mix(in srgb, var(--err) 45%, var(--line)); }
+.athumb.zoomable { cursor: zoom-in; }
+.athumb.zoomable:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* full-size asset popup */
+.apop { position: fixed; z-index: 60; display: grid; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 36px rgba(0, 0, 0, .35); max-width: calc(100vw - 16px); }
+.apop-view { display: grid; place-items: center; border-radius: 6px; overflow: hidden;
+  background-color: var(--check-a); background-image: conic-gradient(var(--check-b) 25%, transparent 0 50%, var(--check-b) 0 75%, transparent 0); background-size: 12px 12px; }
+.apop-view img { display: block; max-width: min(70vw, 900px); max-height: 75vh; width: auto; height: auto; }
+.apop-view.font { background: var(--raise); }
+.apop-font { padding: 14px 18px; display: grid; gap: 4px; font-size: 18px; color: var(--fg); line-height: 1.25; max-width: min(70vw, 560px); overflow-wrap: anywhere; }
+.apop-font .big { font-size: 44px; line-height: 1.1; }
+.apop-cap { display: flex; justify-content: space-between; gap: 12px; font: 11px var(--mono); color: var(--muted); }
+.apop-cap b { color: var(--fg); font-weight: 600; }
 .awarn { display: inline-flex; color: var(--err); cursor: help; }
 .awarn[hidden] { display: none; }
 .awarn svg { width: 14px; height: 14px; }
@@ -1743,9 +1755,56 @@ function thumbFor(e) {
     b.onclick = (ev) => { ev.stopPropagation(); if (S.audioEl && !S.audioEl.paused) { S.audioEl.pause(); if (S.audioBtn === b) { b.textContent = '▶'; return; } S.audioBtn.textContent = '▶'; } const a = new Audio(e.url); S.audioEl = a; S.audioBtn = b; b.textContent = '❚❚'; a.onended = () => (b.textContent = '▶'); a.play().catch(() => (b.textContent = '▶')); };
     th.appendChild(b);
   } else th.textContent = e.kind;
+  // click an image or font thumbnail for the full-size view; click it again (or move the cursor away) to close
+  if ((e.kind === 'image' && e.url) || (e.kind === 'font' && e.cur)) {
+    th.classList.add('zoomable'); th.tabIndex = 0; th.setAttribute('role', 'button');
+    th.setAttribute('aria-label', 'Show ' + e.name + ' at full size'); th.title = 'Click to see it full size';
+    th.addEventListener('click', (ev) => { ev.stopPropagation(); toggleAssetPop(e, th); });
+    th.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleAssetPop(e, th); } });
+    th.addEventListener('mouseenter', () => { if (apop && apop.key === e.key) clearTimeout(apop.t); });
+    th.addEventListener('mouseleave', () => { if (apop && apop.key === e.key) apop.leave(); });
+  }
   return th;
 }
+let apop = null;
+function closeAssetPop() { if (!apop) return; clearTimeout(apop.t); apop.el.remove(); apop = null; }
+function toggleAssetPop(e, th) {
+  const same = apop && apop.key === e.key;
+  closeAssetPop(); if (same) return;
+  const pop = el('div', 'apop'); pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', e.name);
+  const view = el('div', 'apop-view' + (e.kind === 'font' ? ' font' : ''));
+  const cap = el('div', 'apop-cap');
+  const info = [e.dims, e.fmt ? e.fmt + (e.wp && e.wp.lossless ? ' lossless' : e.wp && e.quality ? ` ${e.qualityExact ? '' : '~'}${e.quality}%` : '') : null, fmtBytes(e.cur ? e.cur.length : null)].filter(Boolean).join(' · ');
+  cap.append(el('b', null, e.name), el('span', null, info));
+  const place = () => {
+    const r = th.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight, m = 8;
+    let x = r.left - w - 10; if (x < m) x = r.right + 10; if (x + w > innerWidth - m) x = Math.max(m, innerWidth - w - m);
+    const y = Math.min(Math.max(m, r.top + r.height / 2 - h / 2), Math.max(m, innerHeight - h - m));
+    pop.style.left = x + 'px'; pop.style.top = y + 'px';
+  };
+  if (e.kind === 'image') {
+    const img = el('img'); img.alt = e.name; img.src = e.url;
+    img.onload = () => {
+      const shown = img.getBoundingClientRect().width / img.naturalWidth;
+      if (shown < 0.995) cap.lastChild.textContent += ` · shown at ${Math.round(shown * 100)}%`;
+      place();
+    };
+    view.appendChild(img);
+  } else {
+    const sp = el('div', 'apop-font'); sp.style.fontFamily = `"${e.fontFamily}", var(--sans)`;
+    sp.append(el('div', 'big', 'Aa Bb Cc'), el('div', null, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'), el('div', null, 'abcdefghijklmnopqrstuvwxyz'), el('div', null, '0123456789 !?&%$€'));
+    view.appendChild(sp);
+  }
+  pop.append(view, cap);
+  document.body.appendChild(pop); place();
+  apop = { key: e.key, el: pop, t: 0, leave() { clearTimeout(this.t); this.t = setTimeout(closeAssetPop, 220); } };
+  pop.addEventListener('mouseenter', () => apop && clearTimeout(apop.t));
+  pop.addEventListener('mouseleave', () => apop && apop.leave());
+}
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && apop) closeAssetPop(); });
+document.addEventListener('pointerdown', (ev) => { if (apop && !apop.el.contains(ev.target) && !ev.target.closest('.athumb.zoomable')) closeAssetPop(); });
 function renderAssets() {
+  closeAssetPop();
   const box = $('assetsBody'); [...box.querySelectorAll('[data-key]')].forEach((x) => x.remove());
   const list = [...S.assets];
   for (const e of list) assetStats(e);
