@@ -99,7 +99,11 @@ select { max-width: 170px; }
 .seg .tog { border-radius: 0; } .seg .tog:first-child { border-radius: 5px 0 0 5px; } .seg .tog:last-child { border-radius: 0 5px 5px 0; margin-left: -1px; }
 .tog.icon { width: 28px; padding: 0; justify-content: center; }
 .tog.icon svg { width: 14px; height: 14px; fill: currentColor; }
-#aSort { height: 24px; font-size: 12px; padding: 0 6px; }
+.seg .tog[aria-pressed=true] { position: relative; z-index: 1; }
+#assetsPanel .wbar { flex-wrap: nowrap; gap: 6px; } /* one line: the count gives way first */
+#assetsPanel .wbar .spacer { min-width: 0; }
+#assetCount { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#assetsPanel .seg .tog:not(.icon) { padding: 0 7px; } /* keep the pressed outline above its neighbour's overlapping border */
 .abody { flex: 1; min-height: 0; overflow: auto; }
 .abody.list { display: grid; align-content: start; }
 .abody.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; padding: 8px; align-content: start; }
@@ -115,8 +119,6 @@ select { max-width: 170px; }
 .aname { font: 500 12px var(--mono); display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
 .aname .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .afmt { flex: none; display: inline-flex; gap: 4px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line); background: var(--raise); font: 600 9.5px/1.3 var(--mono); color: var(--fg); letter-spacing: .02em; }
-.afmt .pct { font-weight: 500; color: var(--muted); }
-.afmt .pct.good { color: var(--t-trig); }
 .atile .aname { flex-wrap: wrap; row-gap: 3px; } /* grid: the tag drops under a long name instead of squeezing it */
 .atile .aname .nm { flex: 1 0 100%; }
 .ameta { font: 10.5px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -574,7 +576,10 @@ body.resizing canvas { pointer-events: none; }
             <button class="tog icon" id="aList" aria-pressed="true" title="List" aria-label="List view"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="3" height="3" rx=".6"/><rect x="2" y="9.5" width="3" height="3" rx=".6"/><rect x="6.5" y="3.8" width="7.5" height="1.4" rx=".7"/><rect x="6.5" y="10.3" width="7.5" height="1.4" rx=".7"/></svg></button>
             <button class="tog icon" id="aGrid" aria-pressed="false" title="Grid" aria-label="Grid view"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx=".8"/><rect x="9" y="2" width="5" height="5" rx=".8"/><rect x="2" y="9" width="5" height="5" rx=".8"/><rect x="9" y="9" width="5" height="5" rx=".8"/></svg></button>
           </div>
-          <select id="aSort" aria-label="Sort assets"><option value="name">Name</option><option value="size">Size</option></select>
+          <div class="seg" role="group" aria-label="Sort by">
+            <button class="tog" id="aSortName" aria-pressed="true" title="Sort by name">Name</button>
+            <button class="tog" id="aSortSize" aria-pressed="false" title="Sort by size, largest first">Size</button>
+          </div>
         </div>
         <div class="abody list" id="assetsBody"><div class="hint" id="assetsEmpty">The file's embedded images, fonts and sounds show here. Replace one to swap it live in the player; your .riv stays as it is.</div></div>
         <input type="file" id="assetFile" hidden>
@@ -1527,7 +1532,7 @@ function revealInTree(path) {
 // The runtime hands every file asset to the inspector's asset loader at load, with its embedded bytes.
 // The inspector keeps the asset and returns false, so the runtime still loads the original itself; a
 // replacement is decoded by the runtime and set on the same asset, live. The .riv file is never changed.
-S.assets = []; S.assetOverrides = new Map(); S.assetView = 'list';
+S.assets = []; S.assetOverrides = new Map(); S.assetView = 'list'; S.assetSort = 'name';
 const kindOf = (a) => a.isImage ? 'image' : a.isFont ? 'font' : a.isAudio ? 'audio' : 'other';
 const ACCEPT = { image: '.png,.jpg,.jpeg,.webp', font: '.ttf,.otf', audio: '.wav,.mp3,.flac,.ogg' };
 const fmtBytes = (n) => n == null ? '–' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
@@ -1552,42 +1557,94 @@ function fmtOf(b) {
   if ((b[0] === 0 && b[1] === 1 && b[2] === 0 && b[3] === 0) || t === 'true') return 'TTF';
   return null;
 }
-// compression: how much smaller the stored bytes are than the uncompressed data. Images against their raw
-// pixels (width × height × 4 bytes RGBA, what the GPU holds), sounds against 16-bit 44.1 kHz PCM. Fonts have none.
+// Rive's export quality is not stored in the .riv, but a lossy WebP keeps the quantizers it was encoded with.
+// Rive encodes with libwebp's defaults, where quality Q sets each of the 4 segments' quantizer as
+// q = int(127 * (1 - cb^(1 - amp * alpha))), cb from Q, amp from sns 50, alpha in [-127, 127] per segment;
+// the busiest and flattest segments sit at the clip (alpha -127 or +127), so the extreme quantizers give Q back.
+// Checked against a Rive export at Quality 75% (quantizers 36 … 15). Adjacent values (74/75) can share quantizers.
+function webpInfo(b) {
+  const tag = (o) => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
+  if (!b || b.length < 20 || tag(0) !== 'RIFF' || tag(8) !== 'WEBP') return null;
+  for (let o = 12; o + 8 <= b.length;) {
+    const id = tag(o), sz = (b[o + 4] | (b[o + 5] << 8) | (b[o + 6] << 16) | (b[o + 7] << 24)) >>> 0, d = o + 8;
+    if (id === 'VP8L') return { lossless: true };
+    if (id === 'VP8 ') { try { return vp8Quant(b.subarray(d, d + sz)); } catch (err) { return null; } }
+    o = d + sz + (sz & 1);
+  }
+  return null;
+}
+function vp8Quant(f) { // RFC 6386 frame header, up to the quantizer indices
+  let p = 10, value = (f[p] << 8) | f[p + 1], range = 255, bc = 0; p += 2;
+  const bool = (prob) => { const split = 1 + (((range - 1) * prob) >> 8), S = split << 8; let r; if (value >= S) { r = 1; range -= split; value -= S; } else { r = 0; range = split; } while (range < 128) { value = (value << 1) & 0xffff; range <<= 1; if (++bc === 8) { bc = 0; value |= f[p++] || 0; } } return r; };
+  const L = (n) => { let v = 0; while (n--) v = (v << 1) | bool(128); return v; };
+  const sg = (n) => { const v = L(n); return bool(128) ? -v : v; };
+  L(2); const seg = L(1); let segq = null, abs = 0;
+  if (seg) { const upMap = L(1), upData = L(1); if (upData) { abs = L(1); segq = []; for (let i = 0; i < 4; i++) segq.push(L(1) ? sg(7) : 0); for (let i = 0; i < 4; i++) if (L(1)) sg(6); } if (upMap) for (let i = 0; i < 3; i++) if (L(1)) L(8); }
+  L(1); L(6); L(3); if (L(1) && L(1)) for (let i = 0; i < 8; i++) if (L(1)) sg(6);
+  L(2); const base = L(7);
+  const q = segq ? segq.map((x) => abs ? x : base + x) : [base];
+  return { lossless: false, q, segs: !!segq, cands: webpQualities(q, !!segq) };
+}
+function webpQualities(qs, segs) {
+  const AMP = 0.9 * 50 / 100 / 128;
+  const cb = (Q) => { const c = Q / 100; return Math.cbrt(c < 0.75 ? c * 2 / 3 : 2 * c - 1); };
+  const aRange = (Q, q) => { const Lg = Math.log(cb(Q)); const a = (c) => c <= 0 ? -Infinity : (1 - Math.log(c) / Lg) / AMP; return [a(1 - (q + 1) / 127), a(Math.min(1, 1 - q / 127))]; };
+  const has = (r, x) => r[0] - 1e-9 <= x && x <= r[1] + 1e-9, meets = (r, lo, hi) => r[1] >= lo && r[0] <= hi;
+  const hi = Math.max(...qs), lo = Math.min(...qs), out = [];
+  for (let Q = 1; Q <= 100; Q++) {
+    const I0 = aRange(Q, hi), I3 = aRange(Q, lo);
+    const ok = !segs || hi === lo ? has(I0, 0) || (has(I0, -127) && has(I3, -127)) || (has(I0, 127) && has(I3, 127))
+      : (has(I0, -127) && meets(I3, 0, 127)) || (has(I3, 127) && meets(I0, -127, 0));
+    if (ok) out.push(Q);
+  }
+  return out;
+}
+// pick one quality per image: the value most of the file's images agree on, then a round number
+function pickQualities(list) {
+  const lossy = list.filter((e) => e.wp && !e.wp.lossless && e.wp.cands.length);
+  const count = new Map(); for (const e of lossy) for (const Q of e.wp.cands) count.set(Q, (count.get(Q) || 0) + 1);
+  for (const e of lossy) {
+    const c = e.wp.cands; let best = c[0], key = -1;
+    for (const Q of c) { const k = (count.get(Q) || 0) * 4 + (Q % 5 === 0 ? 2 : 0) + (Q % 5 === 0 || Q === c[c.length - 1] ? 1 : 0); if (k > key) { key = k; best = Q; } }
+    e.quality = best;
+    e.qualityExact = c[c.length - 1] - c[0] <= 1 || (count.get(best) || 0) * 2 >= lossy.length;
+  }
+}
 function assetStats(e) {
   if (!e.cur || e.statFor === e.cur) return;
-  e.statFor = e.cur; e.fmt = fmtOf(e.cur); e.raw = null; e.rawNote = '';
+  e.statFor = e.cur; e.fmt = fmtOf(e.cur); e.wp = e.fmt === 'WEBP' ? webpInfo(e.cur) : null; e.quality = null;
   const cur = e.cur;
-  const done = (raw, note) => { if (e.cur !== cur) return; e.raw = raw; e.rawNote = note; paintFmt(e); };
-  if (e.kind === 'image') {
-    createImageBitmap(new Blob([cur], { type: sniffMime(cur) })).then((bm) => { e.dims = bm.width + '×' + bm.height; done(bm.width * bm.height * 4, `${bm.width}×${bm.height} RGBA`); bm.close(); }).catch(() => {});
-  } else if (e.kind === 'audio') {
-    try {
-      new OfflineAudioContext(1, 1, 44100).decodeAudioData(cur.slice().buffer).then((ab) => done(Math.round(ab.duration * 44100) * ab.numberOfChannels * 2, `${ab.duration.toFixed(2)} s, ${ab.numberOfChannels === 1 ? 'mono' : ab.numberOfChannels === 2 ? 'stereo' : ab.numberOfChannels + ' channels'}, 16-bit 44.1 kHz`)).catch(() => {});
-    } catch (err) {}
-  }
+  if (e.kind === 'image' && !e.dims) createImageBitmap(new Blob([cur], { type: sniffMime(cur) })).then((bm) => { if (e.cur === cur) { e.dims = bm.width + '×' + bm.height; paintMeta(e); } bm.close(); }).catch(() => {});
 }
 function fmtTag(e) {
-  const t = el('span', 'afmt'); t.dataset.fmt = '';
-  fillFmt(e, t); return t;
+  const t = el('span', 'afmt');
+  if (e.cdn && !e.replacedName) { t.textContent = 'CDN'; t.title = 'Loaded from the Rive CDN, not embedded'; return t; }
+  t.textContent = e.fmt || (e.ext || '?').toUpperCase();
+  let tip = e.fmt ? `Stored in the .riv as ${e.fmt}` : 'Unknown format';
+  if (e.ext && e.fmt && e.ext.toUpperCase().replace('JPEG', 'JPG') !== e.fmt) tip += ` (imported as .${e.ext})`;
+  t.title = tip; return t;
 }
-function fillFmt(e, t) {
-  t.textContent = '';
-  if (e.cdn && !e.replacedName) { t.textContent = 'CDN'; t.title = 'Loaded from the Rive CDN, not embedded'; return; }
-  t.append(e.fmt || (e.ext || '?').toUpperCase());
-  let tip = (e.fmt ? `Stored as ${e.fmt}` : 'Unknown format') + ` (${fmtBytes(e.cur ? e.cur.length : null)})`;
-  if (e.raw && e.cur) {
-    const r = (1 - e.cur.length / e.raw) * 100, pct = r >= 0 ? Math.floor(r) : -Math.ceil(-r); // floor: 99.7% shows as 99, never 100
-    t.append(el('span', 'pct' + (pct >= 50 ? ' good' : ''), (pct >= 0 ? '−' : '+') + Math.abs(pct) + '%'));
-    tip += pct >= 0 ? `, ${pct}% smaller than uncompressed (${e.rawNote}: ${fmtBytes(e.raw)})` : `, ${-pct}% larger than uncompressed (${e.rawNote}: ${fmtBytes(e.raw)})`;
+function metaParts(e, grid) {
+  const parts = [];
+  parts.push(el('span', 'adims', e.dims ? e.dims + ' · ' : ''));
+  parts.push(el('span', null, e.cdn && !e.replacedName ? 'on Rive CDN' : fmtBytes(e.cur ? e.cur.length : null)));
+  if (e.wp) {
+    const q = el('span', 'aq');
+    if (e.wp.lossless) { q.textContent = ' · lossless'; q.title = 'Lossless WebP'; }
+    else if (e.quality) {
+      q.textContent = ` · ${e.qualityExact ? '' : '~'}${e.quality}%`;
+      const c = e.wp.cands;
+      q.title = `Export quality ${e.quality}%, as set in Rive (Compression › Quality). Read from the WebP's quantizers (${e.wp.q.join(', ')})` +
+        (c.length > 1 ? `; they fit ${c[0]}–${c[c.length - 1]}%, ${e.quality}% is what most of this file's images use` : '') + '.';
+    }
+    if (q.textContent) parts.push(q);
   }
-  if (e.ext && e.fmt && e.ext.toUpperCase().replace('JPEG', 'JPG') !== e.fmt) tip += `. Imported as .${e.ext}`;
-  t.title = tip;
+  if (e.replacedName && !grid) parts.push(el('span', 'rep', ' · ' + e.replacedName));
+  return parts;
 }
-function paintFmt(e) {
+function paintMeta(e) {
   const it = document.querySelector(`#assetsBody [data-key="${CSS.escape(e.key)}"]`); if (!it) return;
-  const t = it.querySelector('.afmt'); if (t) fillFmt(e, t);
-  const d = it.querySelector('.ameta .adims'); if (d && e.dims) d.textContent = e.dims + ' · ';
+  const m = it.querySelector('.ameta'); if (m) { m.textContent = ''; m.append(...metaParts(e, it.classList.contains('atile'))); }
 }
 function onAsset(asset, bytes, gen) {
   if (gen !== S.gen || !asset) return false;
@@ -1649,7 +1706,9 @@ function thumbFor(e) {
 function renderAssets() {
   const box = $('assetsBody'); [...box.querySelectorAll('[data-key]')].forEach((x) => x.remove());
   const list = [...S.assets];
-  const by = $('aSort').value;
+  for (const e of list) assetStats(e);
+  pickQualities(list);
+  const by = S.assetSort;
   const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
   list.sort((a, b) => by === 'size' ? ((b.cur ? b.cur.length : -1) - (a.cur ? a.cur.length : -1)) || natural(a.name, b.name) : natural(a.name, b.name) || natural(a.kind, b.kind));
   box.className = 'abody ' + S.assetView;
@@ -1661,9 +1720,7 @@ function renderAssets() {
     const it = el('div', (grid ? 'atile' : 'arow') + (e.replacedName ? ' replaced' : '')); it.dataset.key = e.key;
     it.title = e.name + (e.replacedName ? ' (replaced with ' + e.replacedName + ')' : '');
     const info = el('div', 'ainfo');
-    const meta = el('div', 'ameta'); meta.append(el('span', 'adims', e.dims ? e.dims + ' · ' : ''), el('span', null, (e.cdn && !e.replacedName ? 'on Rive CDN' : fmtBytes(e.cur ? e.cur.length : null))));
-    if (e.replacedName && !grid) meta.append(el('span', 'rep', ' · ' + e.replacedName));
-    assetStats(e);
+    const meta = el('div', 'ameta'); meta.append(...metaParts(e, grid));
     const nm = el('div', 'aname'); nm.append(el('span', 'nm', e.name), fmtTag(e));
     info.append(nm, meta);
     const acts = el('div', 'aacts');
@@ -1681,7 +1738,9 @@ function renderAssets() {
     box.appendChild(it);
   }
 }
-$('aSort').onchange = renderAssets;
+const setSort = (by) => { S.assetSort = by; setPressed($('aSortName'), by === 'name'); setPressed($('aSortSize'), by === 'size'); renderAssets(); };
+$('aSortName').onclick = () => setSort('name');
+$('aSortSize').onclick = () => setSort('size');
 $('aList').onclick = () => { S.assetView = 'list'; setPressed($('aList'), true); setPressed($('aGrid'), false); renderAssets(); };
 $('aGrid').onclick = () => { S.assetView = 'grid'; setPressed($('aList'), false); setPressed($('aGrid'), true); renderAssets(); };
 
