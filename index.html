@@ -326,10 +326,28 @@ body.resizing canvas { pointer-events: none; }
 .cgh .count { font-weight: 400; color: var(--muted); }
 .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
 /* list: one card per row; grid: tiles with the thumbnail on top */
-.cards.list .cgrid { grid-template-columns: minmax(0, 1fr); }
+.cards.list .cgrid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+/* list: one compact line per object: small thumbnail, name, triggers, values; scrolls sideways if it runs long */
+.cards.list .card { display: flex; align-items: center; gap: 10px; padding: 4px 8px; overflow-x: auto; scrollbar-width: thin; }
+.cards.list .thumb { flex: none; width: 28px; height: 36px; border-radius: 4px; }
+.cards.list .cbody { flex: none; display: flex; align-items: center; gap: 10px; }
+.cards.list .ctitle { flex: none; max-width: 170px; }
+.cards.list .csub .abl, .cards.list .ctitle .vmt { display: none; } /* the group heading already names the view model */
+.cards.list .csub { flex: none; }
+.cards.list .csub .heat:empty { display: none; }
+.cards.list .chips { flex-wrap: nowrap; }
+.cards.list .chip { flex: none; }
+.cards.list .cvals { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 0 0 10px; border-top: 0; border-left: 1px solid var(--line); }
+.cards.list .cvals dt { max-width: 110px; }
+.cards.list .cvals dd { flex: none; margin-right: 6px; }
+.cards.list .cvals dd input, .cards.list .cvals dd select { width: 84px; }
 .cards.grid .cgrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .cards.grid .card { grid-template-columns: minmax(0, 1fr); }
 .cards.grid .thumb { width: 100%; height: 140px; }
+/* grid tiles are narrow: each value's name sits above its field, so the field gets the full width */
+.cards.grid .cvals { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+.cards.grid .cvals dt { max-width: none; }
+.cards.grid .cvals dd { margin-bottom: 5px; }
 .card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 9px; border: 1px solid var(--line); border-radius: 9px; padding: 8px; background: var(--panel); position: relative; }
 .card.fired { animation: cardFire 750ms ease-out; }
 @keyframes cardFire { 0% { border-color: var(--fire); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fire) 45%, transparent); background: var(--fire-soft); } 100% { border-color: var(--line); box-shadow: 0 0 0 0 transparent; background: var(--panel); } }
