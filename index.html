@@ -92,7 +92,38 @@ select { max-width: 170px; }
 .layout > .stage { grid-area: stage; }
 .mid { grid-area: mid; display: grid; grid-template-rows: auto minmax(100px, var(--h-cards, 1.2fr)) 12px minmax(100px, 1fr); min-height: 0; min-width: 0; }
 .mid > .texts { grid-row: 1; margin-bottom: 12px; max-height: 34vh; }
-.mid > #nestedPanel { grid-row: 2; } .mid > #splitMid { grid-row: 3; } .mid > #logPanel { grid-row: 4; }
+.mid > #nestedPanel { grid-row: 2; } .mid > #splitMid { grid-row: 3; }
+.mid > .logrow { grid-row: 4; display: grid; grid-template-columns: minmax(0, 1fr) 12px var(--w-assets, 300px); min-height: 0; min-width: 0; }
+/* assets: embedded images, fonts and sounds; list or grid; replace live */
+.seg { display: flex; }
+.seg .tog { border-radius: 0; } .seg .tog:first-child { border-radius: 5px 0 0 5px; } .seg .tog:last-child { border-radius: 0 5px 5px 0; margin-left: -1px; }
+.tog.icon { width: 28px; padding: 0; justify-content: center; }
+.tog.icon svg { width: 14px; height: 14px; fill: currentColor; }
+#aSort { height: 24px; font-size: 12px; padding: 0 6px; }
+.abody { flex: 1; min-height: 0; overflow: auto; }
+.abody.list { display: grid; align-content: start; }
+.abody.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; padding: 8px; align-content: start; }
+.athumb { flex: none; display: grid; place-items: center; overflow: hidden; border-radius: 6px; color: var(--muted); font: 600 11px var(--sans);
+  background-color: var(--check-a); background-image: conic-gradient(var(--check-b) 25%, transparent 0 50%, var(--check-b) 0 75%, transparent 0); background-size: 8px 8px; }
+.athumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.athumb .fontprev { font-size: 18px; color: var(--fg); line-height: 1; }
+.athumb.font, .athumb.audio, .athumb.cdn { background: var(--raise); }
+.aplay { border: 0; background: none; padding: 0; color: var(--fg); font-size: 16px; line-height: 1; }
+.arow { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 5px 10px; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.arow .athumb { width: 36px; height: 36px; }
+.ainfo { min-width: 0; display: grid; gap: 1px; }
+.aname { font: 500 12px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ameta { font: 10.5px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ameta .rep { color: var(--accent); }
+.aacts { display: flex; gap: 4px; }
+.aacts button { height: 24px; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 0 8px; font-size: 11.5px; }
+.aacts button:hover { border-color: var(--muted); }
+.atile { display: grid; gap: 4px; min-width: 0; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); position: relative; }
+.atile .athumb { width: 100%; aspect-ratio: 1; }
+.atile .aacts { position: absolute; top: 10px; right: 10px; opacity: 0; transition: opacity 120ms; }
+.atile:hover .aacts, .atile:focus-within .aacts { opacity: 1; }
+.arow.drop, .atile.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.arow.replaced .aname::after, .atile.replaced .aname::after { content: " · replaced"; color: var(--accent); font-weight: 400; }
 /* texts window: view models whose name has "bind" or "text" */
 .tbody { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; display: grid; gap: 12px; }
 .txg { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
@@ -420,7 +451,8 @@ body.resizing canvas { pointer-events: none; }
   html, body { height: auto; }
   .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "stage" "mid" "data"; gap: 12px; }
   .layout > .stage { height: min(78vh, 720px); }
-  .mid { grid-template-rows: auto 460px 0 320px; gap: 6px; }
+  .mid { grid-template-rows: auto 460px 0 auto; gap: 6px; }
+  .mid > .logrow { grid-template-columns: minmax(0, 1fr); grid-template-rows: 320px 280px; gap: 12px; }
   .split { display: none; }
   aside.panel { max-height: 80vh; }
   .val input[type=text], .val select { width: 120px; }
@@ -513,6 +545,7 @@ body.resizing canvas { pointer-events: none; }
         <div class="cards" id="cards"><div class="hint" id="cardsEmpty" style="grid-column: 1 / -1">Each nested view model whose view model is bound to an artboard in the file (a component placed in this artboard, like a cup or a prize) gets a card here: that artboard as a live thumbnail, its triggers to fire, its values. A card flashes when a trigger inside it fires.</div></div>
       </section>
       <div class="split h" id="splitMid" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Resize nested objects and the trigger log" title="Drag to resize · double-click to reset"></div>
+      <div class="logrow" id="logRow">
       <section class="panel" id="logPanel" aria-label="Trigger activations">
         <div class="wbar">
           <span class="dot" id="liveDot"></span>
@@ -526,6 +559,21 @@ body.resizing canvas { pointer-events: none; }
         </div>
         <div class="log hide-events" id="log"><div class="hint" id="logEmpty">Every view model trigger is subscribed with <span class="mono">.on()</span>, in every nested view model and list item, the way the game integration listens. <span class="src rive">rive</span> fired by the file (an event) · <span class="src demo">demo</span> a runtime trigger fired by the file's DEMO layer · <span class="src you">here</span> fired from this page · <span class="src qa">qa</span> a qa_ trigger: the artboard is screenshotted the frame it fires; click the row to see it.</div></div>
       </section>
+      <div class="split" id="splitAssets" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize the trigger log and assets" title="Drag to resize · double-click to reset"></div>
+      <section class="panel" id="assetsPanel" aria-label="Assets">
+        <div class="wbar">
+          <h2>Assets</h2><span class="count" id="assetCount"></span>
+          <div class="spacer"></div>
+          <div class="seg" role="group" aria-label="View">
+            <button class="tog icon" id="aList" aria-pressed="true" title="List" aria-label="List view"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="3" height="3" rx=".6"/><rect x="2" y="9.5" width="3" height="3" rx=".6"/><rect x="6.5" y="3.8" width="7.5" height="1.4" rx=".7"/><rect x="6.5" y="10.3" width="7.5" height="1.4" rx=".7"/></svg></button>
+            <button class="tog icon" id="aGrid" aria-pressed="false" title="Grid" aria-label="Grid view"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx=".8"/><rect x="9" y="2" width="5" height="5" rx=".8"/><rect x="2" y="9" width="5" height="5" rx=".8"/><rect x="9" y="9" width="5" height="5" rx=".8"/></svg></button>
+          </div>
+          <select id="aSort" aria-label="Sort assets"><option value="name">Name</option><option value="size">Size</option></select>
+        </div>
+        <div class="abody list" id="assetsBody"><div class="hint" id="assetsEmpty">The file's embedded images, fonts and sounds show here. Replace one to swap it live in the player; your .riv stays as it is.</div></div>
+        <input type="file" id="assetFile" hidden>
+      </section>
+      </div>
   </section>
 </main>
 
@@ -836,6 +884,7 @@ async function loadFile(file) {
 function loadBuffer(buf, name) {
   teardownCards(); disposeThumbFile();
   S.buf = buf; S.fileName = name || 'file.riv';
+  S.assetOverrides.clear();
   // which properties the file itself writes (data binds target -> source or two-way)
   try { const b = parseRivBinds(buf); S.binds = b.complete ? b : null; } catch (e) { S.binds = null; }
   S.artboard = null; S.sm = null; S.inst = null; S.collapsed.clear();
@@ -858,6 +907,7 @@ function boot() {
   const p = new Promise((res) => S.ready.push(res));
   teardown(); showMsg('');
   const gen = ++S.gen;
+  S.assets = []; renderAssets();
   $('empty').hidden = true;
   const cv = document.createElement('canvas');
   const dpr = DPR();
@@ -868,6 +918,7 @@ function boot() {
     buffer: S.buf.slice(0), canvas: cv, autoplay: true, autoBind: true,
     layout: new RT.Layout({ fit: RT.Fit[S.fit], alignment: RT.Alignment.Center }),
     onLoad: () => { if (gen === S.gen) onLoaded(); },
+    assetLoader: (asset, bytes) => onAsset(asset, bytes, gen),
     onLoadError: (e) => { if (gen === S.gen) { showMsg('Could not load the file in 2.37.6: ' + ((e && (e.data || e.message)) || e)); flushReady(false); } },
   };
   if (S.artboard) opts.artboard = S.artboard;
@@ -1466,6 +1517,119 @@ function revealInTree(path) {
   const c = row.querySelector('input, select, .sw'); if (c) setTimeout(() => c.focus({ preventScroll: true }), 300);
 }
 
+/* ======================= assets ======================= */
+// The runtime hands every file asset to the inspector's asset loader at load, with its embedded bytes.
+// The inspector keeps the asset and returns false, so the runtime still loads the original itself; a
+// replacement is decoded by the runtime and set on the same asset, live. The .riv file is never changed.
+S.assets = []; S.assetOverrides = new Map(); S.assetView = 'list';
+const kindOf = (a) => a.isImage ? 'image' : a.isFont ? 'font' : a.isAudio ? 'audio' : 'other';
+const ACCEPT = { image: '.png,.jpg,.jpeg,.webp', font: '.ttf,.otf', audio: '.wav,.mp3,.flac,.ogg' };
+const fmtBytes = (n) => n == null ? '–' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+function sniffMime(b) {
+  if (!b || b.length < 12) return 'application/octet-stream';
+  if (b[0] === 0x89 && b[1] === 0x50) return 'image/png';
+  if (b[0] === 0xff && b[1] === 0xd8) return 'image/jpeg';
+  if (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45) return 'image/webp';
+  if (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x41) return 'audio/wav';
+  if ((b[0] === 0x49 && b[1] === 0x44) || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return 'audio/mpeg';
+  if (b[0] === 0x66 && b[1] === 0x4c) return 'audio/flac';
+  if (b[0] === 0x4f && b[1] === 0x67) return 'audio/ogg';
+  return 'application/octet-stream';
+}
+function onAsset(asset, bytes, gen) {
+  if (gen !== S.gen || !asset) return false;
+  const kind = kindOf(asset);
+  const name = asset.name || asset.uniqueFilename || '(unnamed)';
+  const nth = S.assets.filter((x) => x.kind === kind && x.name === name).length;
+  const orig = bytes && bytes.length ? new Uint8Array(bytes) : null; // copied out of the runtime's memory
+  const e = { key: kind + ':' + name + ':' + nth, kind, name, ext: (asset.fileExtension || '').toLowerCase(), cdn: !orig && !!asset.cdnUuid, asset, orig, cur: orig, replacedName: null, url: null, urlFor: null, dims: null };
+  S.assets.push(e);
+  const ov = S.assetOverrides.get(e.key);
+  if (ov) { e.cur = ov.bytes; e.replacedName = ov.fileName; applyAssetBytes(e, ov.bytes).catch(() => {}); scheduleAssets(); return true; }
+  scheduleAssets();
+  return false;
+}
+async function applyAssetBytes(e, bytes) {
+  const dec = e.kind === 'image' ? RT.decodeImage : e.kind === 'font' ? RT.decodeFont : e.kind === 'audio' ? RT.decodeAudio : null;
+  if (!dec) throw new Error('This kind of asset cannot be replaced');
+  const obj = await dec(new Uint8Array(bytes));
+  if (!obj) throw new Error('decode failed');
+  if (e.kind === 'image') e.asset.setRenderImage(obj); else if (e.kind === 'font') e.asset.setFont(obj); else e.asset.setAudioSource(obj);
+  try { obj.unref(); } catch (err) {}
+}
+async function replaceAsset(e, file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  try { await applyAssetBytes(e, bytes); }
+  catch (err) { toast(`Couldn't use ${file.name} as ${e.kind === 'image' ? 'an image' : 'a ' + e.kind}`); return; }
+  e.cur = bytes; e.replacedName = file.name; e.dims = null;
+  S.assetOverrides.set(e.key, { bytes, fileName: file.name });
+  renderAssets(); toast('Replaced ' + e.name);
+}
+async function resetAsset(e) {
+  if (!e.orig) return;
+  try { await applyAssetBytes(e, e.orig); } catch (err) { toast('Could not restore ' + e.name); return; }
+  e.cur = e.orig; e.replacedName = null; e.dims = null; S.assetOverrides.delete(e.key);
+  renderAssets(); toast('Restored ' + e.name);
+}
+let assetsT = 0;
+function scheduleAssets() { clearTimeout(assetsT); assetsT = setTimeout(renderAssets, 30); }
+let pickFor = null;
+$('assetFile').addEventListener('change', (ev) => { const f = ev.target.files[0]; ev.target.value = ''; if (f && pickFor) replaceAsset(pickFor, f); pickFor = null; });
+function thumbFor(e) {
+  const th = el('div', 'athumb ' + (e.cdn ? 'cdn' : e.kind));
+  if (e.cdn && !e.replacedName) { th.textContent = 'CDN'; return th; }
+  if (e.urlFor !== e.cur) { if (e.url) URL.revokeObjectURL(e.url); e.url = e.cur ? URL.createObjectURL(new Blob([e.cur], { type: sniffMime(e.cur) })) : null; e.urlFor = e.cur; e.fontFamily = null; }
+  if (e.kind === 'image' && e.url) {
+    const img = el('img'); img.alt = ''; img.src = e.url; img.decoding = 'async';
+    img.onload = () => { if (!e.dims) { e.dims = img.naturalWidth + '×' + img.naturalHeight; const m = th.closest('[data-key]'); const meta = m && m.querySelector('.ameta .adims'); if (meta) meta.textContent = e.dims + ' · '; } };
+    th.appendChild(img);
+  } else if (e.kind === 'font' && e.cur) {
+    if (!e.fontFamily) { e.fontFamily = 'rivasset_' + Math.random().toString(36).slice(2); try { const ff = new FontFace(e.fontFamily, e.cur.slice().buffer); ff.load().then((f) => document.fonts.add(f)).catch(() => {}); } catch (err) {} }
+    const pv = el('span', 'fontprev', 'Aa'); pv.style.fontFamily = `"${e.fontFamily}", var(--sans)`; th.appendChild(pv);
+  } else if (e.kind === 'audio' && e.url) {
+    const b = el('button', 'aplay', '▶'); b.title = 'Play ' + e.name; b.setAttribute('aria-label', b.title);
+    b.onclick = (ev) => { ev.stopPropagation(); if (S.audioEl && !S.audioEl.paused) { S.audioEl.pause(); if (S.audioBtn === b) { b.textContent = '▶'; return; } S.audioBtn.textContent = '▶'; } const a = new Audio(e.url); S.audioEl = a; S.audioBtn = b; b.textContent = '❚❚'; a.onended = () => (b.textContent = '▶'); a.play().catch(() => (b.textContent = '▶')); };
+    th.appendChild(b);
+  } else th.textContent = e.kind;
+  return th;
+}
+function renderAssets() {
+  const box = $('assetsBody'); [...box.querySelectorAll('[data-key]')].forEach((x) => x.remove());
+  const list = [...S.assets];
+  const by = $('aSort').value;
+  const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  list.sort((a, b) => by === 'size' ? ((b.cur ? b.cur.length : -1) - (a.cur ? a.cur.length : -1)) || natural(a.name, b.name) : natural(a.name, b.name) || natural(a.kind, b.kind));
+  box.className = 'abody ' + S.assetView;
+  $('assetsEmpty').hidden = !!list.length;
+  const total = list.reduce((n, x) => n + (x.cur ? x.cur.length : 0), 0);
+  $('assetCount').textContent = list.length ? `${list.length} · ${fmtBytes(total)}` : '';
+  for (const e of list) {
+    const grid = S.assetView === 'grid';
+    const it = el('div', (grid ? 'atile' : 'arow') + (e.replacedName ? ' replaced' : '')); it.dataset.key = e.key;
+    it.title = e.name + (e.replacedName ? ' (replaced with ' + e.replacedName + ')' : '');
+    const info = el('div', 'ainfo');
+    const meta = el('div', 'ameta'); meta.append(el('span', 'adims', e.dims ? e.dims + ' · ' : ''), el('span', null, (e.cdn && !e.replacedName ? 'on Rive CDN' : fmtBytes(e.cur ? e.cur.length : null)) + (grid ? '' : ' · ' + e.kind + (e.ext ? ' .' + e.ext : ''))));
+    if (e.replacedName && !grid) meta.append(el('span', 'rep', ' · ' + e.replacedName));
+    info.append(el('div', 'aname', e.name), meta);
+    const acts = el('div', 'aacts');
+    if (e.kind !== 'other') {
+      const rb = el('button', null, 'Replace'); rb.title = 'Replace ' + e.name + ' live (or drop a file on it)';
+      rb.onclick = (ev) => { ev.stopPropagation(); pickFor = e; $('assetFile').accept = ACCEPT[e.kind] || ''; $('assetFile').click(); };
+      acts.appendChild(rb);
+    }
+    if (e.replacedName && e.orig) { const ub = el('button', null, 'Reset'); ub.title = 'Put the original back'; ub.onclick = (ev) => { ev.stopPropagation(); resetAsset(e); }; acts.appendChild(ub); }
+    it.append(thumbFor(e), info, acts);
+    // drop a file on an asset to replace it
+    it.addEventListener('dragover', (ev) => { ev.preventDefault(); ev.stopPropagation(); it.classList.add('drop'); });
+    it.addEventListener('dragleave', () => it.classList.remove('drop'));
+    it.addEventListener('drop', (ev) => { ev.preventDefault(); ev.stopPropagation(); it.classList.remove('drop'); dragDepth = 0; stage.classList.remove('dragging'); if (S.r) $('empty').hidden = true; const f = ev.dataTransfer.files[0]; if (f && e.kind !== 'other') replaceAsset(e, f); });
+    box.appendChild(it);
+  }
+}
+$('aSort').onchange = renderAssets;
+$('aList').onclick = () => { S.assetView = 'list'; setPressed($('aList'), true); setPressed($('aGrid'), false); renderAssets(); };
+$('aGrid').onclick = () => { S.assetView = 'grid'; setPressed($('aList'), false); setPressed($('aGrid'), true); renderAssets(); };
+
 /* ======================= texts window ======================= */
 // View models whose name has "bind" or "text" (the localization strings) get their own compact window:
 // a Language card on the left, every other value as a short editable line.
@@ -1906,6 +2070,7 @@ function closeFile() {
   Object.assign(S, { buf: null, fileName: '', artboard: null, sm: null, inst: null, binds: null, root: null, tree: null, mainNode: null,
     triggers: [], values: [], vmNodes: [], textNodes: [], textCtls: [], ready: [] });
   clearLog(); perfReset();
+  S.assets = []; S.assetOverrides.clear(); renderAssets();
   $('tree').innerHTML = ''; $('tbtns').innerHTML = ''; $('tbtns').hidden = true; $('topRow').hidden = true; $('treeBar').hidden = true;
   $('vmNone').innerHTML = VM_NONE_HTML; $('vmNone').hidden = false; $('vmName').textContent = 'no view model';
   $('textsBody').innerHTML = ''; $('textsPanel').hidden = true;
@@ -1939,8 +2104,10 @@ window.addEventListener('drop', (e) => {
   const KEY = 'rivinspector.layout';
   let sizes = {};
   try { sizes = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
-  const VARS = { data: '--w-data', stage: '--w-stage', cards: '--h-cards' };
-  const apply = () => { for (const k in VARS) { if (sizes[k]) (k === 'cards' ? mid : lay).style.setProperty(VARS[k], sizes[k] + 'px'); else (k === 'cards' ? mid : lay).style.removeProperty(VARS[k]); } };
+  const VARS = { data: '--w-data', stage: '--w-stage', cards: '--h-cards', assets: '--w-assets' };
+  const logRow = $('logRow');
+  const host = (k) => k === 'cards' ? mid : k === 'assets' ? logRow : lay;
+  const apply = () => { for (const k in VARS) { if (sizes[k]) host(k).style.setProperty(VARS[k], sizes[k] + 'px'); else host(k).style.removeProperty(VARS[k]); } };
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(sizes)); } catch (e) {} };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const MIN_SIDE = 240, MIN_MID = 260, MIN_ROW = 100;
@@ -1948,10 +2115,11 @@ window.addEventListener('drop', (e) => {
     data: (v) => { const L = lay.getBoundingClientRect(), st = stage.getBoundingClientRect().width; return clamp(v, MIN_SIDE, L.width - st - 24 - MIN_MID); },
     stage: (v) => { const L = lay.getBoundingClientRect(), d = lay.querySelector('aside').getBoundingClientRect().width; return clamp(v, MIN_SIDE, L.width - d - 24 - MIN_MID); },
     cards: (v) => clamp(v, MIN_ROW, mid.getBoundingClientRect().bottom - $('nestedPanel').getBoundingClientRect().top - 12 - MIN_ROW),
+    assets: (v) => clamp(v, 180, logRow.getBoundingClientRect().width - 12 - 220),
   };
-  const current = { data: () => lay.querySelector('aside').getBoundingClientRect().width, stage: () => stage.getBoundingClientRect().width, cards: () => $('nestedPanel').getBoundingClientRect().height };
+  const current = { data: () => lay.querySelector('aside').getBoundingClientRect().width, stage: () => stage.getBoundingClientRect().width, cards: () => $('nestedPanel').getBoundingClientRect().height, assets: () => $('assetsPanel').getBoundingClientRect().width };
   const set = (k, v) => { sizes[k] = Math.round(limits[k](v)); apply(); };
-  function wire(el, key, fromPointer) {
+  function wire(el, key, fromPointer, invert) {
     const row = key === 'cards';
     el.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
@@ -1965,7 +2133,8 @@ window.addEventListener('drop', (e) => {
     });
     el.addEventListener('keydown', (e) => {
       const step = e.shiftKey ? 64 : 16;
-      const d = row ? ({ ArrowUp: -step, ArrowDown: step }[e.key]) : ({ ArrowLeft: -step, ArrowRight: step }[e.key]);
+      let d = row ? ({ ArrowUp: -step, ArrowDown: step }[e.key]) : ({ ArrowLeft: -step, ArrowRight: step }[e.key]);
+      if (d && invert) d = -d;
       if (!d) return;
       e.preventDefault(); set(key, current[key]() + d); save();
     });
@@ -1974,9 +2143,11 @@ window.addEventListener('drop', (e) => {
   wire($('splitData'), 'data', (e) => e.clientX - lay.getBoundingClientRect().left);
   wire($('splitStage'), 'stage', (e) => e.clientX - stage.getBoundingClientRect().left);
   wire($('splitMid'), 'cards', (e) => e.clientY - $('nestedPanel').getBoundingClientRect().top);
+  // the assets window sits on the right of its row: it grows as the handle moves left
+  wire($('splitAssets'), 'assets', (e) => logRow.getBoundingClientRect().right - e.clientX - 6, true);
   apply();
   // keep saved sizes valid when the window shrinks
-  window.addEventListener('resize', () => { for (const k of ['data', 'stage', 'cards']) if (sizes[k]) sizes[k] = Math.round(limits[k](sizes[k])); apply(); });
+  window.addEventListener('resize', () => { for (const k of ['data', 'stage', 'cards', 'assets']) if (sizes[k]) sizes[k] = Math.round(limits[k](sizes[k])); apply(); });
 })();
 
 if (!RT) showMsg('The Rive runtime did not load from unpkg.com. Check the network and reload.');
