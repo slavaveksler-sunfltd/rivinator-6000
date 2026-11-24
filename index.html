@@ -2124,7 +2124,9 @@ function fillCard(card) {
   const c = card.el, body = card.body;
   body.querySelectorAll('.chips').forEach((e) => e.remove()); c.querySelectorAll('.cvals').forEach((e) => e.remove());
   card.chips = [];
-  const rtFirst = (arr, get) => arr.map((x, i) => [x, i]).sort((a, b) => ((get(b[0]).origin === 'runtime') - (get(a[0]).origin === 'runtime')) || (a[1] - b[1])).map((x) => x[0]);
+  // a nested object's "index" number is its place in the list, not something to drive: shown as an internal value
+  const isRt = (v) => v.origin === 'runtime' && !(v.name === 'index' && (v.type === 'number' || v.type === 'integer'));
+  const rtFirst = (arr, get) => arr.map((x, i) => [x, i]).sort((a, b) => (isRt(get(b[0])) - isRt(get(a[0]))) || (a[1] - b[1])).map((x) => x[0]);
   const chips = el('div', 'chips');
   rtFirst(card.trigs, (x) => x.t).forEach(({ t, rel }) => {
     const rt = t.origin === 'runtime';
@@ -2141,11 +2143,11 @@ function fillCard(card) {
     const dt = el('dt', null, x.rel); dt.title = v.path + ' (click to show it in the data tree)';
     // the name in its type's color, as in the data panel; set from code: a small green dot instead of the "runtime" tag
     dt.classList.add('t-' + v.type);
-    if (v.origin === 'runtime') { const d = el('span', 'rdot'); d.setAttribute('aria-label', 'runtime'); dt.appendChild(d); dt.title = v.path + ' · set from code (runtime). Click to show it in the data tree'; }
+    if (isRt(v)) { const d = el('span', 'rdot'); d.setAttribute('aria-label', 'runtime'); dt.appendChild(d); dt.title = v.path + ' · set from code (runtime). Click to show it in the data tree'; }
     dt.onclick = () => revealInTree(v.path);
     const dd = el('dd'); x.dd = dd; x.set = null;
     const mark = () => { v.userAt = performance.now(); };
-    const rt = v.origin === 'runtime';
+    const rt = isRt(v);
     // values set from code get the data panel's controls, compact: a switch for booleans, [‹ 5 ›] for numbers
     if (a && rt && v.type === 'boolean') {
       const sw = el('button', 'sw'); sw.setAttribute('role', 'switch'); sw.setAttribute('aria-label', v.path);
