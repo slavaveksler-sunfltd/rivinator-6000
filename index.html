@@ -184,6 +184,11 @@ select { max-width: 170px; }
 /* main view model values set from code: green cards */
 /* main view model values set from code: a 2-column grid of cards, each tinted with its type's color */
 .rtlabel { display: flex; align-items: center; gap: 6px; padding: 2px 16px 0; font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.sect.inputs { color: var(--muted); }
+.rtgh.g-input { --gc: var(--muted); }
+/* legacy state machine inputs: the same cards, on a subtle grey */
+.rtgrid .tr.big.rtcard.inp { border-color: color-mix(in srgb, var(--muted) 35%, transparent); background-color: color-mix(in srgb, var(--muted) 12%, var(--panel)); }
+.rtgrid .tr.big.rtcard.inp:hover { background-color: color-mix(in srgb, var(--muted) 18%, var(--panel)); }
 .rtgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; padding: 6px 16px 10px; }
 .rtgrid .rtag { display: none; }
 /* a small title over each type group */
@@ -1010,7 +1015,7 @@ function loadBuffer(buf, name) {
   S.sizes = null;
   try { const b = parseRivBinds(buf); S.binds = b.complete ? b : null; S.sizes = { groups: b.sizes, total: b.total }; } catch (e) { S.binds = null; }
   renderFileSize();
-  S.artboard = null; S.sm = null; S.inst = null; S.collapsed.clear();
+  S.artboard = null; S.sm = null; S.inst = null; S.collapsed.clear(); S.seenVm = new Set();
   $('fname').textContent = S.fileName; $('fname').title = S.fileName;
   clearLog();
   return boot();
@@ -1141,9 +1146,56 @@ function walk(inst, path, depth, node) {
 }
 function unsubscribeAll() { for (const s of S.subs) { try { s.acc.off(s.cb); } catch (e) {} } S.subs = []; }
 
+// Legacy state machine inputs (numbers, booleans, triggers): read from the running state machine, listed under the
+// main view model on grey cards. Values are edited through the input itself; triggers fire it.
+function collectInputs() {
+  S.inputs = []; S.inputVals = [];
+  let list = [];
+  try { list = (S.sm && S.r.stateMachineInputs(S.sm)) || []; } catch (e) { list = []; }
+  const T = RT.StateMachineInputType || {};
+  for (const inp of list) {
+    const type = inp.type === T.Trigger ? 'trigger' : inp.type === T.Boolean ? 'boolean' : inp.type === T.Number ? 'number' : null;
+    if (!type) continue;
+    const path = 'input:' + inp.name;
+    if (type === 'trigger') S.inputs.push({ kind: 'input', type, name: inp.name, path, inp, count: 0 });
+    else {
+      const v = { kind: 'value', type, name: inp.name, path, depth: 0, origin: 'input', userAt: 0, last: undefined, row: null, ctl: null,
+        acc: { get value() { return inp.value; }, set value(x) { inp.value = x; } } };
+      S.inputs.push(v); S.inputVals.push(v);
+    }
+  }
+}
+function fireInput(t) {
+  try { t.inp.fire(); } catch (e) { toast('Could not fire ' + t.name); return; }
+  t.count++;
+  if (t.row) { t.row.querySelector('.tc').textContent = String(t.count); flash(t.row); }
+  logRow({ path: t.path, owner: 'input', name: t.name, src: 'you', qa: false, t: (vnow() - S.t0) / 1000, f: S.frame - S.f0 });
+}
+function renderInputs(box) {
+  if (!S.inputs || !S.inputs.length) return;
+  const h = el('div', 'sect inputs'); h.append(el('span', null, 'State machine inputs'), el('span', 'count', S.sm + ' · ' + S.inputs.length));
+  h.title = 'Legacy inputs of the state machine ' + S.sm;
+  const grid = el('div', 'rtgrid inputs');
+  const GROUPS = [['trigger', 'Triggers'], ['number', 'Numbers'], ['boolean', 'Booleans']];
+  for (const [type, title] of GROUPS) {
+    const items = S.inputs.filter((x) => x.type === type); if (!items.length) continue;
+    grid.appendChild(el('div', 'rtgh g-input', title));
+    for (const x of items) {
+      if (type === 'trigger') {
+        const card = el('button', 'tr big rtcard tcard inp'); card.dataset.path = x.path; card.title = 'Fire the input ' + x.name;
+        card.append(el('span', 'k', x.name), el('span', 'tc', String(x.count)), el('span', 'tplay'));
+        card.onclick = () => fireInput(x); x.row = card; grid.appendChild(card);
+      } else {
+        const card = rtValueCard(x); card.classList.add('inp'); card.title = 'Input ' + x.name; grid.appendChild(card);
+      }
+    }
+  }
+  box.append(h, grid);
+}
 function bindTree() {
   unsubscribeAll(); teardownCards();
   S.triggers = []; S.values = []; S.vmNodes = [];
+  collectInputs();
   const root = S.r && S.r.viewModelInstance;
   S.root = root || null;
   $('vmNone').hidden = !!root; $('treeBar').hidden = !root;
@@ -1152,6 +1204,7 @@ function bindTree() {
   if (!root) {
     $('vmName').textContent = 'no view model';
     $('vmNone').textContent = 'This artboard has no view model bound (no default view model, or auto-bind found nothing).';
+    renderInputs($('tree'));
     return;
   }
   $('vmName').textContent = vmNameOf(root) || 'view model';
@@ -1159,6 +1212,9 @@ function bindTree() {
   walk(root, '', 0, tree);
   S.tree = tree;
   classify();
+  // nested view models start collapsed (the main one open); once seen, a view model keeps whatever you set across restarts
+  S.seenVm = S.seenVm || new Set();
+  for (const n of S.vmNodes) { if (S.seenVm.has(n.path)) continue; S.seenVm.add(n.path); if (n !== S.mainNode) S.collapsed.add(n.path); }
   const gen = S.gen;
   for (const tr of S.triggers) {
     if (!tr.acc) continue;
@@ -1403,10 +1459,12 @@ function renderTree() {
     const h = el('div', 'sect'); h.append(el('span', null, S.tree.vmName || 'Main'), el('span', 'count', 'main view model'));
     box.appendChild(h);
     addKids(S.tree, (c) => c.kind !== 'vm');
+    renderInputs(box);
     box.appendChild(el('div', 'maingap'));
     orderedKids(S.tree).filter((c) => c.kind === 'vm').forEach(add);
   } else {
     if (main) add(main);
+    renderInputs(box);
     orderedKids(S.tree).filter((c) => c !== main).forEach(add);
   }
   $('valCount').textContent = `${S.values.length} values · ${S.triggers.length} triggers`;
@@ -1597,7 +1655,9 @@ function syncValue(v, initial) {
   if (fromFile) { flash(v.row, 'changed'); reclassify(v); }
 }
 setInterval(() => {
-  if (!S.r || !S.root) return;
+  if (!S.r) return;
+  for (const v of S.inputVals || []) if (v.row && v.row.isConnected) syncValue(v);
+  if (!S.root) return;
   for (const v of S.values) if (v.row && v.row.isConnected) syncValue(v);
   syncCards(); syncTexts();
 }, 100);
