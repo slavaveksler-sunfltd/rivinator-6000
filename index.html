@@ -324,6 +324,7 @@ body.resizing canvas { pointer-events: none; }
 .cgroup { display: grid; gap: 6px; }
 .cgh { position: sticky; top: 0; z-index: 2; display: flex; align-items: baseline; gap: 6px; padding: 8px 2px 4px; background: var(--panel); font: 600 11px var(--mono); color: var(--t-vm); }
 .cgh .count { font-weight: 400; color: var(--muted); }
+.cgrid .card { scroll-margin-top: 30px; } /* scrolled to, a card stays clear of its group's pinned heading */
 .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
 /* list: one card per row; grid: tiles with the thumbnail on top */
 .cards.list .cgrid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
@@ -335,17 +336,20 @@ body.resizing canvas { pointer-events: none; }
 .cards.list .csub .abl, .cards.list .ctitle .vmt { display: none; } /* the group heading already names the view model */
 .cards.list .csub { flex: none; }
 .cards.list .csub .heat:empty { display: none; }
+.cards.list .csec { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 0 0 10px; border-top: 0; border-left: 1px solid var(--line); }
+.cards.list .csec.rt { padding: 3px 8px; border: 0; border-radius: 6px; }
 .cards.list .chips { flex-wrap: nowrap; }
 .cards.list .chip { flex: none; }
-.cards.list .cvals { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 0 0 10px; border-top: 0; border-left: 1px solid var(--line); }
+.cards.list .cvals { flex: none; display: flex; align-items: center; gap: 6px; }
 .cards.list .cvals dt { max-width: 110px; }
 .cards.list .cvals dd { flex: none; margin-right: 6px; }
 .cards.list .cvals dd input, .cards.list .cvals dd select { width: 84px; }
 .cards.grid .cgrid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
 /* grid tiles: thumbnail on the left, name, triggers and values to its right */
-.cards.grid .card { grid-template-columns: 72px minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: start; }
-.cards.grid .thumb { width: 72px; height: 96px; grid-row: 1 / span 2; }
-.cards.grid .cvals { grid-column: 2; grid-template-columns: minmax(0, auto) minmax(84px, 1fr); gap: 3px 6px; padding-top: 5px; }
+.cards.grid .card { grid-template-columns: 72px minmax(0, 1fr); grid-auto-rows: auto; align-items: start; align-content: start; row-gap: 6px; }
+.cards.grid .thumb { width: 72px; height: 96px; grid-row: 1 / span 3; }
+.cards.grid .csec { grid-column: 2; }
+.cards.grid .cvals { grid-template-columns: minmax(0, auto) minmax(84px, 1fr); gap: 3px 6px; }
 .cards.grid .cvals dt { max-width: none; }
 .card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 9px; border: 1px solid var(--line); border-radius: 9px; padding: 8px; background: var(--panel); position: relative; }
 .card.fired { animation: cardFire 750ms ease-out; }
@@ -374,6 +378,13 @@ body.resizing canvas { pointer-events: none; }
 .chip.fired { animation: chipFire 700ms ease-out; }
 @keyframes chipFire { from { background: var(--fire-soft); border-color: var(--fire); } to { background: var(--panel); border-color: var(--line); } }
 .cards.hide-qa .chip.qa { display: none; }
+/* a card's sections: runtime triggers and values together (tinted green), then what Rive sets itself */
+.csec { grid-column: 1 / -1; display: grid; gap: 5px; align-content: start; min-width: 0; }
+.csec.rt { padding: 5px 6px; border-radius: 7px; background: color-mix(in srgb, var(--t-trig) 7%, transparent); }
+.csec.own { padding-top: 6px; border-top: 1px solid var(--line); }
+.csec.rt + .csec.own { border-top: 0; padding-top: 0; }
+.csec .cvals { padding-top: 0; border-top: 0; }
+.cards.no-vals .csec:not(:has(.chips)) { display: none; }
 .cvals { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 8px; align-items: center; font: 11px/1.45 var(--mono); margin: 0; padding-top: 6px; border-top: 1px solid var(--line); }
 .cvals dt { color: var(--muted); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; display: flex; align-items: center; gap: 5px; }
 .cvals dt.t-number, .cvals dt.t-integer { color: var(--t-num); } .cvals dt.t-string { color: var(--t-str); } .cvals dt.t-boolean { color: var(--t-bool); }
@@ -2122,13 +2133,18 @@ function renderCard(card) {
 // the card's triggers (from code first, green) and values (set from code first, with the runtime tag)
 function fillCard(card) {
   const c = card.el, body = card.body;
-  body.querySelectorAll('.chips').forEach((e) => e.remove()); c.querySelectorAll('.cvals').forEach((e) => e.remove());
+  body.querySelectorAll('.chips').forEach((e) => e.remove()); c.querySelectorAll('.cvals, .csec').forEach((e) => e.remove());
   card.chips = [];
+  // runtime triggers and values together first, in the main view model's order: triggers, numbers, enums, booleans,
+  // strings; then what Rive sets itself (events, then values)
   // a nested object's "index" number is its place in the list, not something to drive: shown as an internal value
   const isRt = (v) => v.origin === 'runtime' && !(v.name === 'index' && (v.type === 'number' || v.type === 'integer'));
-  const rtFirst = (arr, get) => arr.map((x, i) => [x, i]).sort((a, b) => (isRt(get(b[0])) - isRt(get(a[0]))) || (a[1] - b[1])).map((x) => x[0]);
-  const chips = el('div', 'chips');
-  rtFirst(card.trigs, (x) => x.t).forEach(({ t, rel }) => {
+  const TYPE_ORDER = { number: 0, integer: 0, enumType: 1, boolean: 2, string: 3 };
+  const typeRank = (v) => isRt(v) ? (TYPE_ORDER[v.type] ?? 4) : 9;
+  const rtFirst = (arr, get) => arr.map((x, i) => [x, i]).sort((a, b) => (typeRank(get(a[0])) - typeRank(get(b[0]))) || (a[1] - b[1])).map((x) => x[0]);
+  const chipsRt = el('div', 'chips'), chipsEv = el('div', 'chips');
+  card.trigs.forEach(({ t, rel }) => {
+    const chips = t.origin === 'runtime' ? chipsRt : chipsEv;
     const rt = t.origin === 'runtime';
     const ch = el('button', 'chip' + (t.qa ? ' qa' : '') + (rt ? ' rt' : ''));
     ch.title = (rt ? 'Fire ' : 'Fire (an event the file fires itself) ') + t.path;
@@ -2136,9 +2152,9 @@ function fillCard(card) {
     ch.onclick = () => fireTrigger(t);
     ch._t = t; card.chips.push(ch); chips.appendChild(ch);
   });
-  const dl = el('dl', 'cvals');
+  const dlRt = el('dl', 'cvals'), dlIn = el('dl', 'cvals');
   rtFirst(card.vals, (x) => x.v).forEach((x) => {
-    const v = x.v, a = v.acc;
+    const v = x.v, a = v.acc, dl = isRt(v) ? dlRt : dlIn;
     x.ctl = null; x.shown = undefined;
     const dt = el('dt', null, x.rel); dt.title = v.path + ' (click to show it in the data tree)';
     // the name in its type's color, as in the data panel; set from code: a small green dot instead of the "runtime" tag
@@ -2189,8 +2205,15 @@ function fillCard(card) {
     }
     dl.append(dt, dd);
   });
-  if (card.trigs.length) body.appendChild(chips);
-  if (card.vals.length) c.appendChild(dl);
+  const sec = (cls, chips, dl) => {
+    if (!chips.children.length && !dl.children.length) return;
+    const s = el('div', 'csec ' + cls);
+    if (chips.children.length) s.appendChild(chips);
+    if (dl.children.length) s.appendChild(dl);
+    c.appendChild(s);
+  };
+  sec('rt', chipsRt, dlRt);
+  sec('own', chipsEv, dlIn);
   syncCard(card);
 }
 
