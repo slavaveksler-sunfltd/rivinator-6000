@@ -12,7 +12,7 @@ Files never leave your browser: nothing is uploaded anywhere.
   - The main view model's triggers fired from code (no data bind in the file writes them) sit on top as large green buttons, `activate` first. Nested view models keep theirs in the tree and on their cards.
   - The main view model (its name contains "main") comes next, in larger rows: its triggers and values set from code are cards in two columns, tinted with their type color, ordered trigger, number, enum, boolean, string (click a trigger card to fire it, a boolean card to toggle it). Then every nested view model.
   - Inside each view model, values set from code come first, marked with a green **runtime** tag; values Rive sets follow, then events.
-  - Legacy state machine inputs (triggers, numbers, booleans), if the state machine has any, are listed under the main view model on grey cards: fire the triggers, edit the numbers and booleans. Fired inputs show in the trigger log. Files without a view model show their inputs too.
+  - Legacy state machine inputs (triggers, numbers, booleans), if the state machine has any, are listed under the main view model on grey cards: fire the triggers, edit the numbers and booleans. Fired inputs show in the trigger log. Under them, the artboard's exported text runs (named in Rive, set from code with `setTextRunValue`) are listed with their current text, editable in place. Files without a view model show their inputs and text runs too.
   - Nested view models start collapsed; the main one is open.
   - Every value is editable and every trigger can be fired.
   - Press **Space** to fire `activate` (unless you're typing in a field).

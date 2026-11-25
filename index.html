@@ -186,6 +186,7 @@ select { max-width: 170px; }
 .rtlabel { display: flex; align-items: center; gap: 6px; padding: 2px 16px 0; font: 600 10px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
 .sect.inputs { color: var(--muted); }
 .rtgh.g-input { --gc: var(--muted); }
+.rtgrid.texts { grid-template-columns: minmax(0, 1fr); }
 /* legacy state machine inputs: the same cards, on a subtle grey */
 .rtgrid .tr.big.rtcard.inp { border-color: color-mix(in srgb, var(--muted) 35%, transparent); background-color: color-mix(in srgb, var(--muted) 12%, var(--panel)); }
 .rtgrid .tr.big.rtcard.inp:hover { background-color: color-mix(in srgb, var(--muted) 18%, var(--panel)); }
@@ -855,6 +856,9 @@ function parseRivBinds(buf) {
   };
   // file size by what the bytes are: every object's bytes go to its type's group, an asset's contents to its kind
   const sizes = { header: p }; let assetGroup = null;
+  // named text runs (TextValueRun 135, name key 4), by artboard (Artboard 1, name key 4): exported, so code can set them by name
+  const textRuns = []; let curAb = null;
+  const dec = (b) => { try { return b && b.length ? new TextDecoder().decode(b) : ''; } catch (e) { return ''; } };
   const addSize = (g, n) => { sizes[g] = (sizes[g] || 0) + n; };
   while (p < u8.length) {
     const s0 = p;
@@ -872,6 +876,8 @@ function parseRivBinds(buf) {
     if (ASSET_GROUP[type]) assetGroup = ASSET_GROUP[type];
     addSize(type === 106 ? (assetGroup || 'other') : ASSET_GROUP[type] || SIZE_GROUP.get(type) || 'other', p - s0);
     if (type === 106) assetGroup = null;
+    if (type === 1) curAb = dec(props[4]);
+    else if (type === 135 && props[4]) { const nm = dec(props[4]); if (nm) textRuns.push({ artboard: curAb, name: nm }); }
     if (!(588 in props)) lastType = type;
     if (type === 57) layer = props[138] || '';
     else if (type === 53 || type === 1 || type === 114 || type === 654) layer = null;
@@ -917,7 +923,7 @@ function parseRivBinds(buf) {
       (isDemo(b.layer) ? demo : written).add(vms[b.ids[0]].name + ':' + names.join('/'));
     } else skipped++;
   }
-  return { major, sizes, total: u8.length, vms, written, demo, bindList: binds, binds: binds.length, toSource: resolved, skipped, complete: unknownKey === null, unknownKey };
+  return { major, sizes, textRuns, total: u8.length, vms, written, demo, bindList: binds, binds: binds.length, toSource: resolved, skipped, complete: unknownKey === null, unknownKey };
 }
 
 /* ======================= performance ======================= */
@@ -1013,7 +1019,8 @@ function loadBuffer(buf, name) {
   S.assetOverrides.clear();
   // which properties the file itself writes (data binds target -> source or two-way)
   S.sizes = null;
-  try { const b = parseRivBinds(buf); S.binds = b.complete ? b : null; S.sizes = { groups: b.sizes, total: b.total }; } catch (e) { S.binds = null; }
+  S.textRunsAll = [];
+  try { const b = parseRivBinds(buf); S.binds = b.complete ? b : null; S.sizes = { groups: b.sizes, total: b.total }; S.textRunsAll = b.textRuns; } catch (e) { S.binds = null; }
   renderFileSize();
   S.artboard = null; S.sm = null; S.inst = null; S.collapsed.clear(); S.seenVm = new Set();
   $('fname').textContent = S.fileName; $('fname').title = S.fileName;
@@ -1149,7 +1156,17 @@ function unsubscribeAll() { for (const s of S.subs) { try { s.acc.off(s.cb); } c
 // Legacy state machine inputs (numbers, booleans, triggers): read from the running state machine, listed under the
 // main view model on grey cards. Values are edited through the input itself; triggers fire it.
 function collectInputs() {
-  S.inputs = []; S.inputVals = [];
+  S.inputs = []; S.inputVals = []; S.textRuns = [];
+  // exported text runs of this artboard: named in the file and readable by name in the runtime
+  const seen = new Set();
+  for (const tr of S.textRunsAll || []) {
+    if (tr.artboard !== S.artboard || seen.has(tr.name)) continue; seen.add(tr.name);
+    let ok = false; try { ok = S.r.getTextRunValue(tr.name) !== undefined; } catch (e) {}
+    if (!ok) continue;
+    const name = tr.name;
+    S.textRuns.push({ kind: 'value', type: 'string', name, path: 'text:' + name, depth: 0, origin: 'input', userAt: 0, last: undefined, row: null, ctl: null,
+      acc: { get value() { return S.r.getTextRunValue(name); }, set value(x) { S.r.setTextRunValue(name, x); } } });
+  }
   let list = [];
   try { list = (S.sm && S.r.stateMachineInputs(S.sm)) || []; } catch (e) { list = []; }
   const T = RT.StateMachineInputType || {};
@@ -1172,6 +1189,17 @@ function fireInput(t) {
   logRow({ path: t.path, owner: 'input', name: t.name, src: 'you', qa: false, t: (vnow() - S.t0) / 1000, f: S.frame - S.f0 });
 }
 function renderInputs(box) {
+  renderSmInputs(box); renderTextRuns(box);
+}
+function renderTextRuns(box) {
+  if (!S.textRuns || !S.textRuns.length) return;
+  const h = el('div', 'sect inputs'); h.append(el('span', null, 'Text runs'), el('span', 'count', 'exported · ' + S.textRuns.length));
+  h.title = 'Text runs of ' + S.artboard + ' exported by name (setTextRunValue)';
+  const grid = el('div', 'rtgrid inputs texts');
+  for (const v of S.textRuns) { const card = rtValueCard(v); card.classList.add('inp'); card.title = 'Text run ' + v.name; grid.appendChild(card); }
+  box.append(h, grid);
+}
+function renderSmInputs(box) {
   if (!S.inputs || !S.inputs.length) return;
   const h = el('div', 'sect inputs'); h.append(el('span', null, 'State machine inputs'), el('span', 'count', S.sm + ' · ' + S.inputs.length));
   h.title = 'Legacy inputs of the state machine ' + S.sm;
@@ -1657,6 +1685,7 @@ function syncValue(v, initial) {
 setInterval(() => {
   if (!S.r) return;
   for (const v of S.inputVals || []) if (v.row && v.row.isConnected) syncValue(v);
+  for (const v of S.textRuns || []) if (v.row && v.row.isConnected) syncValue(v);
   if (!S.root) return;
   for (const v of S.values) if (v.row && v.row.isConnected) syncValue(v);
   syncCards(); syncTexts();
