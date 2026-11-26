@@ -558,6 +558,10 @@ body.resizing canvas { pointer-events: none; }
 :root { --snow: #a3b9d8; --hat: #d8282f; --hat-dark: #9e1820; --fur: #ffffff; --fur-edge: #d3dbe7; --wx-sky: rgba(120, 160, 215, .16); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --snow: #ffffff; --fur: #f4f7fb; --fur-edge: #aeb9cb; --wx-sky: rgba(90, 130, 200, .14); } }
 :root[data-theme="dark"] { --snow: #ffffff; --fur: #f4f7fb; --fur-edge: #aeb9cb; --wx-sky: rgba(90, 130, 200, .14); }
+/* bluer panels while the winter theme is on (the toggle puts the original colours back) */
+html.winter { --bg: #e1e9f4; --panel: #f7faff; --raise: #eaf0f9; --line: #cbd7e8; }
+@media (prefers-color-scheme: dark) { html.winter:not([data-theme="light"]) { --bg: #0b1220; --panel: #121b2c; --raise: #19233a; --line: #26334d; } }
+html.winter[data-theme="dark"] { --bg: #0b1220; --panel: #121b2c; --raise: #19233a; --line: #26334d; }
 html.winter body { background-image: linear-gradient(180deg, var(--wx-sky), transparent 320px); background-repeat: no-repeat; }
 html.winter .bar { padding-top: 20px; }
 .wx-layer { position: fixed; inset: 0; z-index: 25; pointer-events: none; overflow: hidden; }
