@@ -40,7 +40,7 @@ Files never leave your browser: nothing is uploaded anywhere.
 
 Panels are resizable: drag the bars between them; double-click a bar to reset it.
 
-**Winter theme:** falling snow, Santa hats on the panels and the mascot, string lights along the top, and bluer panels. It's decoration only: it draws on a layer above the page that takes no clicks and doesn't touch the file, the runtime or its frame timing. It hides while you record the tab. Turn it off with the snowflake button in the top bar; the page remembers your choice.
+**Winter theme:** falling snow (kept off the player, so the artboard stays clear), Santa hats on the panels and the mascot, string lights along the top, and bluer panels. It's decoration only: it draws on a layer above the page that takes no clicks and doesn't touch the file, the runtime or its frame timing. It hides while you record the tab. Turn it off with the snowflake button in the top bar; the page remembers your choice.
 
 ## Running it locally
 

@@ -2645,7 +2645,7 @@ if (!RT) showMsg('The Rive runtime did not load from unpkg.com. Check the networ
 </script>
 <script>
 /* Winter theme: decoration only. Santa hats, string lights and snow are drawn on a fixed layer above the page that never
-   takes clicks. Nothing in the .riv or the runtime changes: snow runs on the real requestAnimationFrame, outside the
+   takes clicks. Snow stays off the player. Nothing in the .riv or the runtime changes: snow runs on the real requestAnimationFrame, outside the
    runtime's frame timing, and the whole layer hides while the tab is being recorded. The snowflake button turns it off. */
 (function () {
   const KEY = 'rivinator.winter';
@@ -2674,8 +2674,11 @@ if (!RT) showMsg('The Rive runtime did not load from unpkg.com. Check the networ
     document.querySelectorAll('.brand .logo, .empty .hero').forEach((el) => t.push([el, 'logo']));
     return t;
   }
+  let stageR = null;
   function place() {
     if (!on) return;
+    const st = document.getElementById('stage');
+    stageR = st ? st.getBoundingClientRect() : null;
     for (const [el, kind] of targets()) {
       let h = hats.get(el);
       if (!h) { h = document.createElement('div'); h.className = 'wx-hat'; h.innerHTML = HAT; layer.append(h); hats.set(el, h); if (ro) ro.observe(el); }
@@ -2726,12 +2729,19 @@ if (!RT) showMsg('The Rive runtime did not load from unpkg.com. Check the networ
     if (!running) return;
     const dt = last ? Math.min(.05, (t - last) / 1000) : 0; last = t;
     ctx.setTransform(D, 0, 0, D, 0, 0); ctx.clearRect(0, 0, W, H); ctx.fillStyle = color;
+    ctx.save();
+    if (stageR && stageR.width) { /* no snow over the player: everything but its rectangle */
+      ctx.beginPath(); ctx.rect(0, 0, W, H);
+      if (ctx.roundRect) ctx.roundRect(stageR.left, stageR.top, stageR.width, stageR.height, 10); else ctx.rect(stageR.left, stageR.top, stageR.width, stageR.height);
+      ctx.clip('evenodd');
+    }
     for (const f of flakes) {
       f.y += f.vy * dt; f.ph += f.fq * dt; f.x += 5 * dt;
       if (f.y > H + 6) Object.assign(f, mk(false));
       if (f.x > W + 20) f.x -= W + 40;
       ctx.globalAlpha = f.a; ctx.beginPath(); ctx.arc(f.x + Math.sin(f.ph) * f.sw, f.y, f.r, 0, 6.2832); ctx.fill();
     }
+    ctx.restore();
     raf(frame);
   }
   function snowRun(v) {
