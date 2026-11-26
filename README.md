@@ -40,6 +40,8 @@ Files never leave your browser: nothing is uploaded anywhere.
 
 Panels are resizable: drag the bars between them; double-click a bar to reset it.
 
+**Winter theme:** falling snow, Santa hats on the panels and the mascot, and string lights along the top. It's decoration only: it draws on a layer above the page that takes no clicks and doesn't touch the file, the runtime or its frame timing. It hides while you record the tab. Turn it off with the snowflake button in the top bar; the page remembers your choice.
+
 ## Running it locally
 
 The page needs to be served over http (browsers do not load `rive.wasm` from a `file://` page):

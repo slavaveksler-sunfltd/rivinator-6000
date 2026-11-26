@@ -554,6 +554,24 @@ body.resizing canvas { pointer-events: none; }
   aside.panel { max-height: 80vh; }
   .val input[type=text], .val select { width: 120px; }
 }
+/* ---------- winter theme: decoration only (a fixed layer that never takes clicks; the file, the runtime and its timing are untouched) ---------- */
+:root { --snow: #a3b9d8; --hat: #d8282f; --hat-dark: #9e1820; --fur: #ffffff; --fur-edge: #d3dbe7; --wx-sky: rgba(120, 160, 215, .16); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --snow: #ffffff; --fur: #f4f7fb; --fur-edge: #aeb9cb; --wx-sky: rgba(90, 130, 200, .14); } }
+:root[data-theme="dark"] { --snow: #ffffff; --fur: #f4f7fb; --fur-edge: #aeb9cb; --wx-sky: rgba(90, 130, 200, .14); }
+html.winter body { background-image: linear-gradient(180deg, var(--wx-sky), transparent 320px); background-repeat: no-repeat; }
+html.winter .bar { padding-top: 20px; }
+.wx-layer { position: fixed; inset: 0; z-index: 25; pointer-events: none; overflow: hidden; }
+.wx-layer[hidden] { display: none; }
+.wx-snow { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wx-hat { position: absolute; left: 0; top: 0; transform-origin: 40% 85%; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, .28)); }
+.wx-hat svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.wx-lights { position: absolute; left: 0; top: 0; right: 0; height: 22px; }
+.wx-lights svg { display: block; overflow: visible; }
+.wx-wire { fill: none; stroke: #3c5a3a; stroke-width: 1.4; }
+.wx-bulb { animation: wx-tw 2.8s ease-in-out infinite; }
+@keyframes wx-tw { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.wxtog { height: 28px; padding: 0 7px; }
+.wxtog svg { width: 15px; height: 15px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -571,6 +589,7 @@ body.resizing canvas { pointer-events: none; }
     <select id="selFit"><option>Contain</option><option>Cover</option><option>Fill</option><option>FitWidth</option><option>FitHeight</option><option>ScaleDown</option><option>None</option><option>Layout</option></select></div>
   <div class="ctl"><label for="selSpeed">Speed</label>
     <select id="selSpeed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></div>
+  <button class="tog wxtog" id="wxTog" aria-pressed="true" title="Winter theme: snow, hats and lights" aria-label="Winter theme"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 1.5v13M2.4 4.75l11.2 6.5M2.4 11.25l11.2-6.5"/><path d="M6.3 2.6 8 4.1l1.7-1.5M6.3 13.4 8 11.9l1.7 1.5M2.6 7.1l2.2-.5-.7-2.2M13.4 8.9l-2.2.5.7 2.2M2.6 8.9l2.2.5-.7 2.2M13.4 7.1l-2.2-.5.7-2.2"/></svg></button>
 </header>
 
 <main class="layout" id="layout">
@@ -2618,6 +2637,126 @@ window.addEventListener('drop', (e) => {
 })();
 
 if (!RT) showMsg('The Rive runtime did not load from unpkg.com. Check the network and reload.');
+})();
+</script>
+<script>
+/* Winter theme: decoration only. Santa hats, string lights and snow are drawn on a fixed layer above the page that never
+   takes clicks. Nothing in the .riv or the runtime changes: snow runs on the real requestAnimationFrame, outside the
+   runtime's frame timing, and the whole layer hides while the tab is being recorded. The snowflake button turns it off. */
+(function () {
+  const KEY = 'rivinator.winter';
+  let on = true;
+  try { on = localStorage.getItem(KEY) !== '0'; } catch (e) {}
+  const raf = window.__realRAF || window.requestAnimationFrame.bind(window);
+  const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const HAT = '<svg viewBox="0 0 40 34" aria-hidden="true">'
+    + '<path d="M6 25C7 14 15 4.5 26 4c7-.4 11.5 4 11 11l-3.4.4c-.3-3.4-2.1-5.2-4.6-4.8 2 4.4 2.6 9.4 2.4 14.4z" fill="var(--hat)"/>'
+    + '<path d="M24.5 5.2c4.6 4.6 6.6 11.6 6.9 19.8h-4.2c-.1-7.4-1-14-2.7-19.8z" fill="var(--hat-dark)" opacity=".5"/>'
+    + '<rect x="3" y="23" width="32" height="9" rx="4.5" fill="var(--fur)" stroke="var(--fur-edge)"/>'
+    + '<circle cx="36" cy="16.5" r="4.2" fill="var(--fur)" stroke="var(--fur-edge)"/></svg>';
+  const layer = document.createElement('div'); layer.className = 'wx-layer'; layer.setAttribute('aria-hidden', 'true');
+  const snow = document.createElement('canvas'); snow.className = 'wx-snow';
+  const lights = document.createElement('div'); lights.className = 'wx-lights';
+  layer.append(snow, lights);
+  document.body.append(layer);
+  const btn = document.getElementById('wxTog');
+
+  /* hats: one on the top-left corner of every panel and the player, one on the mascot's head */
+  const hats = new Map();
+  const ro = window.ResizeObserver ? new ResizeObserver(() => schedule()) : null;
+  function targets() {
+    const t = [];
+    document.querySelectorAll('.panel, .stage').forEach((el) => t.push([el, 'corner']));
+    document.querySelectorAll('.brand .logo, .empty .hero').forEach((el) => t.push([el, 'logo']));
+    return t;
+  }
+  function place() {
+    if (!on) return;
+    for (const [el, kind] of targets()) {
+      let h = hats.get(el);
+      if (!h) { h = document.createElement('div'); h.className = 'wx-hat'; h.innerHTML = HAT; layer.append(h); hats.set(el, h); if (ro) ro.observe(el); }
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight) { h.style.display = 'none'; continue; }
+      h.style.display = '';
+      let w, x, y, rot;
+      if (kind === 'corner') { w = 30; x = r.left - 11; y = r.top - 17; rot = -24; }
+      else { w = r.width * .34; x = r.left + r.width * .6; y = r.top - w * .5; rot = 10; }
+      h.style.width = w + 'px'; h.style.height = (w * .85) + 'px';
+      h.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${rot}deg)`;
+    }
+  }
+  let pending = false;
+  function schedule() { if (pending || !on) return; pending = true; raf(() => { pending = false; place(); lightsFit(); }); }
+
+  /* string lights along the top of the page */
+  let lightsW = 0;
+  function lightsFit() {
+    const W = document.documentElement.clientWidth;
+    if (W === lightsW) return;
+    lightsW = W;
+    const seg = 46, n = Math.ceil(W / seg) + 1, cols = ['#ff4d4d', '#ffc93c', '#4cd964', '#4aa8ff', '#ff7ad9'];
+    let d = 'M0 2', bulbs = '';
+    for (let i = 0; i < n; i++) {
+      const x0 = i * seg, cx = x0 + seg / 2;
+      d += `Q${cx} 13 ${x0 + seg} 2`;
+      const c = cols[i % cols.length], delay = -((i * 0.73) % 2.8).toFixed(2);
+      bulbs += `<rect x="${cx - 1.6}" y="6.6" width="3.2" height="3" rx=".6" fill="#3c5a3a"/>`
+        + `<ellipse class="wx-bulb" cx="${cx}" cy="13.2" rx="2.9" ry="4.2" fill="${c}" style="animation-delay:${delay}s;filter:drop-shadow(0 0 3px ${c})"/>`;
+    }
+    lights.innerHTML = `<svg width="${W}" height="22" viewBox="0 0 ${W} 22"><path class="wx-wire" d="${d}"/>${bulbs}</svg>`;
+  }
+
+  /* snow */
+  const ctx = snow.getContext('2d');
+  let W = 0, H = 0, D = 1, flakes = [], color = '#fff', last = 0, running = false;
+  const mk = (anyY) => { const r = .7 + Math.random() ** 2 * 2.4; return { x: Math.random() * W, y: anyY ? Math.random() * H : -6, r, vy: 12 + r * 13 + Math.random() * 10, ph: Math.random() * 6.283, sw: 6 + Math.random() * 16, fq: .35 + Math.random() * .8, a: .35 + Math.random() * .55 }; };
+  function size() {
+    D = Math.min(window.devicePixelRatio || 1, 1.5); W = innerWidth; H = innerHeight;
+    snow.width = Math.round(W * D); snow.height = Math.round(H * D);
+    const n = Math.min(170, Math.round(W * H / 11000));
+    while (flakes.length < n) flakes.push(mk(true));
+    flakes.length = n;
+  }
+  function readColor() { color = getComputedStyle(document.documentElement).getPropertyValue('--snow').trim() || '#fff'; }
+  function frame(t) {
+    if (!running) return;
+    const dt = last ? Math.min(.05, (t - last) / 1000) : 0; last = t;
+    ctx.setTransform(D, 0, 0, D, 0, 0); ctx.clearRect(0, 0, W, H); ctx.fillStyle = color;
+    for (const f of flakes) {
+      f.y += f.vy * dt; f.ph += f.fq * dt; f.x += 5 * dt;
+      if (f.y > H + 6) Object.assign(f, mk(false));
+      if (f.x > W + 20) f.x -= W + 40;
+      ctx.globalAlpha = f.a; ctx.beginPath(); ctx.arc(f.x + Math.sin(f.ph) * f.sw, f.y, f.r, 0, 6.2832); ctx.fill();
+    }
+    raf(frame);
+  }
+  function snowRun(v) {
+    if (calm) v = false;
+    if (v === running) return;
+    running = v; last = 0;
+    if (v) { size(); readColor(); raf(frame); } else ctx.clearRect(0, 0, snow.width, snow.height);
+  }
+
+  /* hide everything while the tab itself is being recorded */
+  let recording = false;
+  const rb = document.getElementById('btnRec'), rs = document.getElementById('recSrc');
+  if (rb) new MutationObserver(() => { recording = rb.classList.contains('on') && rs && rs.value === 'tab'; apply(); }).observe(rb, { attributes: true, attributeFilter: ['class'] });
+
+  function apply() {
+    document.documentElement.classList.toggle('winter', on);
+    layer.hidden = !on || recording;
+    if (btn) btn.setAttribute('aria-pressed', String(on));
+    snowRun(on && !recording);
+    if (on) { lightsW = 0; schedule(); }
+  }
+  if (btn) btn.addEventListener('click', () => { on = !on; try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {} apply(); });
+  addEventListener('resize', () => { if (running) size(); schedule(); });
+  addEventListener('scroll', schedule, { capture: true, passive: true });
+  if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColor);
+  new MutationObserver(readColor).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  if (ro) ro.observe(document.body);
+  setInterval(schedule, 1000);
+  apply();
 })();
 </script>
 
